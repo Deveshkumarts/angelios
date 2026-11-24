@@ -64,7 +64,7 @@ fun SettingsScreen(repository: CommunicationRepository) {
                 )
                 Text(
                     text = "HARDWARE & SECURITY PROFILES",
-                    fontFamily = FontFamily.Monospace,
+                    fontFamily = FontFamily.SansSerif,
                     fontSize = 10.sp,
                     color = SignalCyanBright
                 )
@@ -79,9 +79,9 @@ fun SettingsScreen(repository: CommunicationRepository) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .clip(RoundedCornerShape(10.dp))
+                .clip(RoundedCornerShape(0.dp))
                 .background(CardNavyGlass)
-                .border(1.dp, BorderGlass, RoundedCornerShape(10.dp))
+                .border(1.dp, BorderGlass, RoundedCornerShape(0.dp))
                 .padding(10.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
@@ -90,9 +90,9 @@ fun SettingsScreen(repository: CommunicationRepository) {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clip(RoundedCornerShape(6.dp))
+                        .clip(RoundedCornerShape(0.dp))
                         .background(if (isSelected) SignalCyanBright.copy(alpha = 0.15f) else CardNavy)
-                        .border(1.dp, if (isSelected) SignalCyanBright else BorderGlass, RoundedCornerShape(6.dp))
+                        .border(1.dp, if (isSelected) SignalCyanBright else BorderGlass, RoundedCornerShape(0.dp))
                         .clickable { repository.networkMonitor.setTransport(transport) }
                         .padding(10.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -100,10 +100,10 @@ fun SettingsScreen(repository: CommunicationRepository) {
                 ) {
                     Column {
                         Text(text = transport.label, fontFamily = FontFamily.SansSerif, fontWeight = FontWeight.SemiBold, fontSize = 13.sp, color = TextWhite)
-                        Text(text = "MTU ${transport.maxMtu}B • ${if (transport.isWireless) "Wireless RF" else "Loopback Simulation"}", fontFamily = FontFamily.Monospace, fontSize = 10.sp, color = TextDim)
+                        Text(text = "MTU ${transport.maxMtu}B • ${if (transport.isWireless) "Wireless RF" else "Loopback Simulation"}", fontFamily = FontFamily.SansSerif, fontSize = 10.sp, color = TextDim)
                     }
                     if (isSelected) {
-                        Text(text = "ACTIVE", fontFamily = FontFamily.Monospace, fontSize = 10.sp, fontWeight = FontWeight.Bold, color = NetworkGreen)
+                        Text(text = "ACTIVE", fontFamily = FontFamily.SansSerif, fontSize = 10.sp, fontWeight = FontWeight.Bold, color = NetworkGreen)
                     }
                 }
             }
@@ -116,9 +116,9 @@ fun SettingsScreen(repository: CommunicationRepository) {
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .clip(RoundedCornerShape(10.dp))
+                .clip(RoundedCornerShape(0.dp))
                 .background(CardNavyGlass)
-                .border(1.dp, BorderGlass, RoundedCornerShape(10.dp))
+                .border(1.dp, BorderGlass, RoundedCornerShape(0.dp))
                 .padding(12.dp)
         ) {
             Column {
@@ -126,7 +126,7 @@ fun SettingsScreen(repository: CommunicationRepository) {
                     Icon(Icons.Default.Lock, contentDescription = "Secure", tint = if (usingDefaultKey) WarningAmber else NetworkGreen, modifier = Modifier.size(24.dp))
                     Spacer(modifier = Modifier.width(10.dp))
                     Column {
-                        Text("Mesh: AES-256-GCM (team passphrase)", fontFamily = FontFamily.Monospace, fontSize = 12.sp, fontWeight = FontWeight.Bold, color = TextWhite)
+                        Text("Mesh: AES-256-GCM (team passphrase)", fontFamily = FontFamily.SansSerif, fontSize = 12.sp, fontWeight = FontWeight.Bold, color = TextWhite)
                         Text("Local history: AES-256-GCM, key in Android Keystore. SOS beacons stay unencrypted so any rescuer can hear them.", fontFamily = FontFamily.SansSerif, fontSize = 11.sp, color = TextMuted)
                     }
                 }
@@ -167,13 +167,13 @@ fun SettingsScreen(repository: CommunicationRepository) {
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .clip(RoundedCornerShape(10.dp))
+                .clip(RoundedCornerShape(0.dp))
                 .background(CardNavyGlass)
-                .border(1.dp, BorderGlass, RoundedCornerShape(10.dp))
+                .border(1.dp, BorderGlass, RoundedCornerShape(0.dp))
                 .padding(12.dp)
         ) {
             Column {
-                Text(text = "Current State: ${batteryState.label}", fontFamily = FontFamily.Monospace, fontSize = 12.sp, fontWeight = FontWeight.Bold, color = NetworkGreen)
+                Text(text = "Current State: ${batteryState.label}", fontFamily = FontFamily.SansSerif, fontSize = 12.sp, fontWeight = FontWeight.Bold, color = NetworkGreen)
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(text = "Automatically switches to pure semantic encoding and limits high-frequency scanning when battery drops below 20%.", fontFamily = FontFamily.SansSerif, fontSize = 11.sp, color = TextMuted)
             }
@@ -186,9 +186,9 @@ fun SettingsScreen(repository: CommunicationRepository) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .clip(RoundedCornerShape(10.dp))
+                .clip(RoundedCornerShape(0.dp))
                 .background(CardNavyGlass)
-                .border(1.dp, BorderGlass, RoundedCornerShape(10.dp))
+                .border(1.dp, BorderGlass, RoundedCornerShape(0.dp))
                 .padding(12.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
@@ -203,7 +203,7 @@ fun SettingsScreen(repository: CommunicationRepository) {
 private fun SectionTitle(title: String) {
     Text(
         text = title,
-        fontFamily = FontFamily.Monospace,
+        fontFamily = FontFamily.SansSerif,
         fontSize = 10.sp,
         fontWeight = FontWeight.Bold,
         color = TextDim,

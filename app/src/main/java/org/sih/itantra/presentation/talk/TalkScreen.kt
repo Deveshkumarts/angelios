@@ -33,6 +33,7 @@ import org.sih.itantra.presentation.ui.components.AudioWaveformVisualizer
 import org.sih.itantra.presentation.ui.components.PttHoldButton
 import org.sih.itantra.presentation.ui.components.StaggeredEntrance
 import org.sih.itantra.presentation.ui.theme.*
+import org.sih.itantra.presentation.ui.components.*
 
 /**
  * Dedicated General Communication Screen.
@@ -167,108 +168,33 @@ fun TalkScreen(repository: CommunicationRepository) {
                 .padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 220.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // 1. General Communication Header Banner & Base Station Indicator
+            // 1. Editorial header + base-station status block
             StaggeredEntrance(index = 0) {
-                Column(modifier = Modifier.fillMaxWidth()) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Column {
-                            Text(
-                                text = "GENERAL COMMUNICATION",
-                                fontFamily = FontFamily.SansSerif,
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 17.sp,
-                                color = CyberTextWhite
-                            )
-                            Text(
-                                text = "NON-EMERGENCY • VOICE & TEXT TRANSLATE",
-                                fontFamily = FontFamily.Monospace,
-                                fontSize = 10.sp,
-                                color = CyberMatrixGreen
-                            )
-                        }
-                        Box(
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(6.dp))
-                                .background(CyberMatrixGreen.copy(alpha = 0.2f))
-                                .border(1.dp, CyberMatrixGreen.copy(alpha = 0.6f), RoundedCornerShape(6.dp))
-                                .padding(horizontal = 8.dp, vertical = 4.dp)
-                        ) {
-                            Text(
-                                text = "NORMAL",
-                                fontFamily = FontFamily.Monospace,
-                                fontSize = 10.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = CyberMatrixGreen
-                            )
-                        }
+                LabScreenHeader(
+                    index = 1,
+                    total = 4,
+                    section = "General comms",
+                    title = "talk",
+                    captions = listOf("Voice + text", "Auto-translate", "Non-emergency"),
+                    status = if (serverStatus.isOnline) {
+                        (if (serverStatus.isCuda) "Base station GPU online" else "Base station online") +
+                            (serverStatus.endpoint?.let { " · $it" } ?: "")
+                    } else {
+                        "Base station offline · on-device AI"
                     }
-
-                    Spacer(modifier = Modifier.height(6.dp))
-
-                    // Real-Time Base Station GPU Server Indicator Pill
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(6.dp))
-                            .background(if (serverStatus.isOnline) CyberMatrixGreen.copy(alpha = 0.15f) else CyberCardDark)
-                            .border(
-                                1.dp,
-                                if (serverStatus.isOnline) CyberMatrixGreen.copy(alpha = 0.6f) else CyberBorderSubtle,
-                                RoundedCornerShape(6.dp)
-                            )
-                            .padding(horizontal = 10.dp, vertical = 5.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Box(
-                                modifier = Modifier
-                                    .size(7.dp)
-                                    .clip(androidx.compose.foundation.shape.CircleShape)
-                                    .background(if (serverStatus.isOnline) CyberMatrixGreen else CyberTextDim)
-                            )
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text(
-                                text = if (serverStatus.isOnline) {
-                                    if (serverStatus.isCuda) "BASE STATION GPU: ONLINE (CUDA)" else "BASE STATION: ONLINE"
-                                } else {
-                                    "BASE STATION: OFFLINE (ON-DEVICE AI)"
-                                },
-                                fontFamily = FontFamily.Monospace,
-                                fontSize = 9.5.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = if (serverStatus.isOnline) CyberMatrixGreen else CyberTextDim
-                            )
-                        }
-
-                        Text(
-                            text = if (serverStatus.isOnline) {
-                                serverStatus.endpoint ?: "192.168.137.1:5000"
-                            } else {
-                                "100% On-Device Neural"
-                            },
-                            fontFamily = FontFamily.Monospace,
-                            fontSize = 9.sp,
-                            color = if (serverStatus.isOnline) CyberTextWhite else CyberTextMuted
-                        )
-                    }
-                }
+                )
             }
 
-            Spacer(modifier = Modifier.height(10.dp))
+            Spacer(modifier = Modifier.height(16.dp))
 
             // 2. Tactical Channel Bar
             StaggeredEntrance(index = 1) {
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clip(RoundedCornerShape(8.dp))
+                        .clip(RoundedCornerShape(0.dp))
                         .background(CyberGlassSurface)
-                        .border(1.dp, CyberBorderRed, RoundedCornerShape(8.dp))
+                        .border(1.dp, CyberBorderRed, RoundedCornerShape(0.dp))
                         .padding(horizontal = 14.dp, vertical = 10.dp)
                 ) {
                     Row(
@@ -279,13 +205,13 @@ fun TalkScreen(repository: CommunicationRepository) {
                         Column {
                             Text(
                                 text = "TARGET RECEIVER",
-                                fontFamily = FontFamily.Monospace,
+                                fontFamily = FontFamily.SansSerif,
                                 fontSize = 9.sp,
                                 color = CyberTextDim
                             )
                             Text(
                                 text = targetNode?.name ?: "ALL MESH NODES (BROADCAST)",
-                                fontFamily = FontFamily.Monospace,
+                                fontFamily = FontFamily.SansSerif,
                                 fontSize = 12.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = CyberTextWhite
@@ -295,7 +221,7 @@ fun TalkScreen(repository: CommunicationRepository) {
                         Column(horizontalAlignment = Alignment.End) {
                             Text(
                                 text = "YOUR LANGUAGE",
-                                fontFamily = FontFamily.Monospace,
+                                fontFamily = FontFamily.SansSerif,
                                 fontSize = 9.sp,
                                 color = CyberTextDim
                             )
@@ -325,14 +251,14 @@ fun TalkScreen(repository: CommunicationRepository) {
                         val millis = (durationMs % 1000) / 100
                         Text(
                             text = "DURATION: %02d:%02d.%d".format(seconds / 60, seconds % 60, millis),
-                            fontFamily = FontFamily.Monospace,
+                            fontFamily = FontFamily.SansSerif,
                             fontSize = 12.sp,
                             fontWeight = FontWeight.Bold,
                             color = if (isRecording) CyberNeonRedBright else CyberTextMuted
                         )
                         Text(
                             text = "MIC RMS: ${(amplitude * 100).toInt()}%",
-                            fontFamily = FontFamily.Monospace,
+                            fontFamily = FontFamily.SansSerif,
                             fontSize = 12.sp,
                             color = CyberNeonRedBright
                         )
@@ -356,9 +282,9 @@ fun TalkScreen(repository: CommunicationRepository) {
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .clip(RoundedCornerShape(8.dp))
+                            .clip(RoundedCornerShape(0.dp))
                             .background(CyberGlassSurface)
-                            .border(1.dp, CyberNeonRedBright, RoundedCornerShape(8.dp))
+                            .border(1.dp, CyberNeonRedBright, RoundedCornerShape(0.dp))
                             .padding(10.dp)
                     ) {
                         Column {
@@ -375,7 +301,7 @@ fun TalkScreen(repository: CommunicationRepository) {
                                         "LISTENING TO VOICE (${selectedLanguage.displayName.uppercase()})..."
                                     else
                                         "TRANSCRIBED VOICE TEXT",
-                                    fontFamily = FontFamily.Monospace,
+                                    fontFamily = FontFamily.SansSerif,
                                     fontSize = 10.sp,
                                     color = CyberNeonRedBright,
                                     fontWeight = FontWeight.Bold
@@ -401,9 +327,9 @@ fun TalkScreen(repository: CommunicationRepository) {
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .clip(RoundedCornerShape(8.dp))
+                            .clip(RoundedCornerShape(0.dp))
                             .background(CyberGlassSurface)
-                            .border(1.dp, CyberMatrixGreen, RoundedCornerShape(8.dp))
+                            .border(1.dp, CyberMatrixGreen, RoundedCornerShape(0.dp))
                             .padding(10.dp)
                     ) {
                         Column {
@@ -417,7 +343,7 @@ fun TalkScreen(repository: CommunicationRepository) {
                                 Spacer(modifier = Modifier.width(6.dp))
                                 Text(
                                     text = "RECEIVER AUTO-TRANSLATION PREVIEW (${targetLangForPreview.displayName.uppercase()} • ${targetLangForPreview.nativeName})",
-                                    fontFamily = FontFamily.Monospace,
+                                    fontFamily = FontFamily.SansSerif,
                                     fontSize = 10.sp,
                                     color = CyberMatrixGreen,
                                     fontWeight = FontWeight.Bold
@@ -444,7 +370,7 @@ fun TalkScreen(repository: CommunicationRepository) {
                 Column(modifier = Modifier.fillMaxWidth()) {
                     Text(
                         text = "TACTICAL TALK PRESETS (NON-EMERGENCY)",
-                        fontFamily = FontFamily.Monospace,
+                        fontFamily = FontFamily.SansSerif,
                         fontSize = 10.sp,
                         color = CyberNeonRedBright,
                         fontWeight = FontWeight.Bold,
@@ -463,9 +389,9 @@ fun TalkScreen(repository: CommunicationRepository) {
                                     Box(
                                         modifier = Modifier
                                             .weight(1f)
-                                            .clip(RoundedCornerShape(6.dp))
+                                            .clip(RoundedCornerShape(0.dp))
                                             .background(CyberGlassSurface)
-                                            .border(1.dp, CyberBorderRed, RoundedCornerShape(6.dp))
+                                            .border(1.dp, CyberBorderRed, RoundedCornerShape(0.dp))
                                             .clickable {
                                                 repository.stopPttCaptureAndSend(presetText)
                                             }
@@ -474,7 +400,7 @@ fun TalkScreen(repository: CommunicationRepository) {
                                     ) {
                                         Text(
                                             text = label,
-                                            fontFamily = FontFamily.Monospace,
+                                            fontFamily = FontFamily.SansSerif,
                                             fontSize = 11.sp,
                                             fontWeight = FontWeight.SemiBold,
                                             color = CyberTextWhite
@@ -522,7 +448,7 @@ fun TalkScreen(repository: CommunicationRepository) {
                                 }
                             ),
                             modifier = Modifier.weight(1f),
-                            shape = RoundedCornerShape(8.dp),
+                            shape = RoundedCornerShape(0.dp),
                             colors = OutlinedTextFieldDefaults.colors(
                                 focusedBorderColor = CyberNeonRedBright,
                                 unfocusedBorderColor = CyberBorderRed,
@@ -539,7 +465,7 @@ fun TalkScreen(repository: CommunicationRepository) {
                                     customMessageText = ""
                                 }
                             },
-                            shape = RoundedCornerShape(8.dp),
+                            shape = RoundedCornerShape(0.dp),
                             colors = ButtonDefaults.buttonColors(containerColor = CyberNeonRed),
                             modifier = Modifier.height(52.dp)
                         ) {
@@ -557,7 +483,7 @@ fun TalkScreen(repository: CommunicationRepository) {
                     if (messages.isNotEmpty()) {
                         Text(
                             text = "RECENT CHANNEL MESSAGES (AUDIO & TEXT)",
-                            fontFamily = FontFamily.Monospace,
+                            fontFamily = FontFamily.SansSerif,
                             fontSize = 10.sp,
                             color = CyberTextDim,
                             modifier = Modifier.align(Alignment.Start)
@@ -569,9 +495,9 @@ fun TalkScreen(repository: CommunicationRepository) {
                                 Box(
                                     modifier = Modifier
                                         .fillMaxWidth()
-                                        .clip(RoundedCornerShape(8.dp))
+                                        .clip(RoundedCornerShape(0.dp))
                                         .background(CyberGlassSurface)
-                                        .border(1.dp, CyberBorderRed, RoundedCornerShape(8.dp))
+                                        .border(1.dp, CyberBorderRed, RoundedCornerShape(0.dp))
                                         .padding(10.dp)
                                 ) {
                                     Row(
@@ -582,7 +508,7 @@ fun TalkScreen(repository: CommunicationRepository) {
                                         Column(modifier = Modifier.weight(1f)) {
                                             Text(
                                                 text = if (msg.isIncoming) msg.senderName else "${userProfile.username} (You)",
-                                                fontFamily = FontFamily.Monospace,
+                                                fontFamily = FontFamily.SansSerif,
                                                 fontSize = 10.sp,
                                                 fontWeight = FontWeight.Bold,
                                                 color = if (msg.isIncoming) CyberNeonRedBright else CyberTextWhite
@@ -619,9 +545,9 @@ fun TalkScreen(repository: CommunicationRepository) {
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .clip(RoundedCornerShape(10.dp))
+                            .clip(RoundedCornerShape(0.dp))
                             .background(CyberGlassSurface)
-                            .border(1.dp, CyberBorderRed, RoundedCornerShape(10.dp))
+                            .border(1.dp, CyberBorderRed, RoundedCornerShape(0.dp))
                             .padding(12.dp)
                     ) {
                         Row(
@@ -629,20 +555,20 @@ fun TalkScreen(repository: CommunicationRepository) {
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
                             Column {
-                                Text("LATENCY", fontFamily = FontFamily.Monospace, fontSize = 9.sp, color = CyberTextDim)
-                                Text("${linkMetrics.latencyMs} ms", fontFamily = FontFamily.Monospace, fontSize = 12.sp, fontWeight = FontWeight.Bold, color = CyberTextWhite)
+                                Text("LATENCY", fontFamily = FontFamily.SansSerif, fontSize = 9.sp, color = CyberTextDim)
+                                Text("${linkMetrics.latencyMs} ms", fontFamily = FontFamily.SansSerif, fontSize = 12.sp, fontWeight = FontWeight.Bold, color = CyberTextWhite)
                             }
                             Column {
-                                Text("PAYLOAD", fontFamily = FontFamily.Monospace, fontSize = 9.sp, color = CyberTextDim)
-                                Text("38 BYTES", fontFamily = FontFamily.Monospace, fontSize = 12.sp, fontWeight = FontWeight.Bold, color = CyberTextWhite)
+                                Text("PAYLOAD", fontFamily = FontFamily.SansSerif, fontSize = 9.sp, color = CyberTextDim)
+                                Text("38 BYTES", fontFamily = FontFamily.SansSerif, fontSize = 12.sp, fontWeight = FontWeight.Bold, color = CyberTextWhite)
                             }
                             Column {
-                                Text("SAVINGS", fontFamily = FontFamily.Monospace, fontSize = 9.sp, color = CyberTextDim)
-                                Text("99.4%", fontFamily = FontFamily.Monospace, fontSize = 12.sp, fontWeight = FontWeight.Bold, color = CyberMatrixGreen)
+                                Text("SAVINGS", fontFamily = FontFamily.SansSerif, fontSize = 9.sp, color = CyberTextDim)
+                                Text("99.4%", fontFamily = FontFamily.SansSerif, fontSize = 12.sp, fontWeight = FontWeight.Bold, color = CyberMatrixGreen)
                             }
                             Column {
-                                Text("PRIORITY", fontFamily = FontFamily.Monospace, fontSize = 9.sp, color = CyberTextDim)
-                                Text("NORMAL", fontFamily = FontFamily.Monospace, fontSize = 12.sp, fontWeight = FontWeight.Bold, color = CyberMatrixGreen)
+                                Text("PRIORITY", fontFamily = FontFamily.SansSerif, fontSize = 9.sp, color = CyberTextDim)
+                                Text("NORMAL", fontFamily = FontFamily.SansSerif, fontSize = 12.sp, fontWeight = FontWeight.Bold, color = CyberMatrixGreen)
                             }
                         }
                     }

@@ -65,7 +65,7 @@ fun DiagnosticsScreen(repository: CommunicationRepository) {
                 )
                 Text(
                     text = "REAL-TIME MODEL & RF TELEMETRY AUDIT",
-                    fontFamily = FontFamily.Monospace,
+                    fontFamily = FontFamily.SansSerif,
                     fontSize = 10.sp,
                     color = SignalCyanBright
                 )
@@ -138,23 +138,23 @@ fun DiagnosticsScreen(repository: CommunicationRepository) {
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .clip(RoundedCornerShape(10.dp))
+                .clip(RoundedCornerShape(0.dp))
                 .background(CardNavyGlass)
-                .border(1.dp, BorderGlass, RoundedCornerShape(10.dp))
+                .border(1.dp, BorderGlass, RoundedCornerShape(0.dp))
                 .padding(14.dp)
         ) {
             Column {
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                     Text(
                         text = "DEVICE SYSTEM RESOURCES (LIVE)",
-                        fontFamily = FontFamily.Monospace,
+                        fontFamily = FontFamily.SansSerif,
                         fontSize = 11.sp,
                         fontWeight = FontWeight.Bold,
                         color = TextWhite
                     )
                     Text(
                         text = if (perf.cpuSampleIsIdle) "IDLE" else "ACTIVE (PTT/STT/TTS)",
-                        fontFamily = FontFamily.Monospace,
+                        fontFamily = FontFamily.SansSerif,
                         fontSize = 9.sp,
                         color = if (perf.cpuSampleIsIdle) TextMuted else SignalCyanBright
                     )
@@ -185,9 +185,9 @@ fun DiagnosticsScreen(repository: CommunicationRepository) {
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .clip(RoundedCornerShape(10.dp))
+                .clip(RoundedCornerShape(0.dp))
                 .background(CardNavyGlass)
-                .border(1.dp, SignalCyanBright.copy(alpha = 0.5f), RoundedCornerShape(10.dp))
+                .border(1.dp, SignalCyanBright.copy(alpha = 0.5f), RoundedCornerShape(0.dp))
                 .padding(14.dp)
         ) {
             Column {
@@ -197,14 +197,14 @@ fun DiagnosticsScreen(repository: CommunicationRepository) {
                 ) {
                     Text(
                         text = "BANDWIDTH REDUCTION BENCHMARK",
-                        fontFamily = FontFamily.Monospace,
+                        fontFamily = FontFamily.SansSerif,
                         fontSize = 11.sp,
                         fontWeight = FontWeight.Bold,
                         color = SignalCyanBright
                     )
                     Text(
                         text = "99.4% SAVED",
-                        fontFamily = FontFamily.Monospace,
+                        fontFamily = FontFamily.SansSerif,
                         fontSize = 11.sp,
                         fontWeight = FontWeight.Bold,
                         color = NetworkGreen
@@ -226,15 +226,15 @@ fun DiagnosticsScreen(repository: CommunicationRepository) {
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .clip(RoundedCornerShape(10.dp))
+                .clip(RoundedCornerShape(0.dp))
                 .background(CardNavyGlass)
-                .border(1.dp, BorderGlass, RoundedCornerShape(10.dp))
+                .border(1.dp, BorderGlass, RoundedCornerShape(0.dp))
                 .padding(14.dp)
         ) {
             Column {
                 Text(
                     text = "REAL-TIME RF TELEMETRY",
-                    fontFamily = FontFamily.Monospace,
+                    fontFamily = FontFamily.SansSerif,
                     fontSize = 11.sp,
                     fontWeight = FontWeight.Bold,
                     color = TextWhite
@@ -281,17 +281,17 @@ private fun formatBytes(bytes: Long): String = when {
 private fun KpiCard(title: String, value: String, target: String, statusColor: Color, modifier: Modifier = Modifier) {
     Box(
         modifier = modifier
-            .clip(RoundedCornerShape(10.dp))
+            .clip(RoundedCornerShape(0.dp))
             .background(CardNavyGlass)
-            .border(1.dp, BorderGlass, RoundedCornerShape(10.dp))
+            .border(1.dp, BorderGlass, RoundedCornerShape(0.dp))
             .padding(12.dp)
     ) {
         Column {
-            Text(text = title, fontFamily = FontFamily.Monospace, fontSize = 9.sp, color = TextDim)
+            Text(text = title, fontFamily = FontFamily.SansSerif, fontSize = 9.sp, color = TextDim)
             Spacer(modifier = Modifier.height(4.dp))
-            Text(text = value, fontFamily = FontFamily.Monospace, fontSize = 16.sp, fontWeight = FontWeight.Bold, color = statusColor)
+            Text(text = value, fontFamily = FontFamily.SansSerif, fontSize = 16.sp, fontWeight = FontWeight.Bold, color = statusColor)
             Spacer(modifier = Modifier.height(2.dp))
-            Text(text = target, fontFamily = FontFamily.Monospace, fontSize = 9.sp, color = TextMuted)
+            Text(text = target, fontFamily = FontFamily.SansSerif, fontSize = 9.sp, color = TextMuted)
         }
     }
 }
@@ -304,10 +304,10 @@ private fun TelemetryItem(label: String, value: String, isHighlight: Boolean = f
             .padding(vertical = 3.dp),
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
-        Text(text = label, fontFamily = FontFamily.Monospace, fontSize = 10.sp, color = TextMuted)
+        Text(text = label, fontFamily = FontFamily.SansSerif, fontSize = 10.sp, color = TextMuted)
         Text(
             text = value,
-            fontFamily = FontFamily.Monospace,
+            fontFamily = FontFamily.SansSerif,
             fontSize = 10.sp,
             fontWeight = if (isHighlight) FontWeight.Bold else FontWeight.Normal,
             color = if (isHighlight) SignalCyanBright else TextWhite
@@ -328,7 +328,7 @@ private fun ResourceGaugeItem(label: String, progress: Float, pctText: String, c
             )
             Text(
                 text = pctText,
-                fontFamily = FontFamily.Monospace,
+                fontFamily = FontFamily.SansSerif,
                 fontSize = 11.sp,
                 fontWeight = FontWeight.Bold,
                 color = TextWhite
@@ -337,7 +337,7 @@ private fun ResourceGaugeItem(label: String, progress: Float, pctText: String, c
         Spacer(modifier = Modifier.height(6.dp))
         Text(
             text = label,
-            fontFamily = FontFamily.Monospace,
+            fontFamily = FontFamily.SansSerif,
             fontSize = 9.sp,
             color = TextDim
         )

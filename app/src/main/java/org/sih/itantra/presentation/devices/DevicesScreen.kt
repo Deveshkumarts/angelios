@@ -57,7 +57,7 @@ fun DevicesScreen(repository: CommunicationRepository) {
                 )
                 Text(
                     text = "PAIR & PRIORITIZE MESH COMMUNICATORS",
-                    fontFamily = FontFamily.Monospace,
+                    fontFamily = FontFamily.SansSerif,
                     fontSize = 10.sp,
                     color = SignalCyanBright
                 )
@@ -65,7 +65,7 @@ fun DevicesScreen(repository: CommunicationRepository) {
 
             Box(
                 modifier = Modifier
-                    .clip(RoundedCornerShape(8.dp))
+                    .clip(RoundedCornerShape(0.dp))
                     .background(IsroBlueBright)
                     .clickable {
                         val newNode = NetworkNode(
@@ -83,7 +83,7 @@ fun DevicesScreen(repository: CommunicationRepository) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(Icons.Default.Add, contentDescription = "Add", tint = TextWhite, modifier = Modifier.size(16.dp))
                     Spacer(modifier = Modifier.width(4.dp))
-                    Text("PAIR NODE", fontFamily = FontFamily.Monospace, fontSize = 10.sp, fontWeight = FontWeight.Bold, color = TextWhite)
+                    Text("PAIR NODE", fontFamily = FontFamily.SansSerif, fontSize = 10.sp, fontWeight = FontWeight.Bold, color = TextWhite)
                 }
             }
         }
@@ -116,12 +116,12 @@ fun DevicesScreen(repository: CommunicationRepository) {
             },
             text = {
                 Column {
-                    Text("Device ID: ${node.id}", fontFamily = FontFamily.Monospace, fontSize = 12.sp, color = SignalCyanBright)
-                    Text("Transport: ${node.transportType.label}", fontFamily = FontFamily.Monospace, fontSize = 12.sp, color = TextMuted)
-                    Text("Signal Strength: ${node.rssi} dBm", fontFamily = FontFamily.Monospace, fontSize = 12.sp, color = TextMuted)
-                    Text("Battery Level: ${node.batteryPct}%", fontFamily = FontFamily.Monospace, fontSize = 12.sp, color = TextMuted)
-                    Text("Multi-Hop Distance: ${node.hopCount} Hops", fontFamily = FontFamily.Monospace, fontSize = 12.sp, color = TextMuted)
-                    Text("Encryption: AES-256-GCM (team mesh key)", fontFamily = FontFamily.Monospace, fontSize = 12.sp, color = NetworkGreen)
+                    Text("Device ID: ${node.id}", fontFamily = FontFamily.SansSerif, fontSize = 12.sp, color = SignalCyanBright)
+                    Text("Transport: ${node.transportType.label}", fontFamily = FontFamily.SansSerif, fontSize = 12.sp, color = TextMuted)
+                    Text("Signal Strength: ${node.rssi} dBm", fontFamily = FontFamily.SansSerif, fontSize = 12.sp, color = TextMuted)
+                    Text("Battery Level: ${node.batteryPct}%", fontFamily = FontFamily.SansSerif, fontSize = 12.sp, color = TextMuted)
+                    Text("Multi-Hop Distance: ${node.hopCount} Hops", fontFamily = FontFamily.SansSerif, fontSize = 12.sp, color = TextMuted)
+                    Text("Encryption: AES-256-GCM (team mesh key)", fontFamily = FontFamily.SansSerif, fontSize = 12.sp, color = NetworkGreen)
                 }
             },
             confirmButton = {
@@ -152,9 +152,9 @@ private fun DeviceCard(
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(10.dp))
+            .clip(RoundedCornerShape(0.dp))
             .background(CardNavyGlass)
-            .border(1.dp, if (isPrioritized) SignalCyanBright else BorderGlass, RoundedCornerShape(10.dp))
+            .border(1.dp, if (isPrioritized) SignalCyanBright else BorderGlass, RoundedCornerShape(0.dp))
             .clickable { onInspect() }
             .padding(14.dp)
     ) {
@@ -185,7 +185,7 @@ private fun DeviceCard(
                 Spacer(modifier = Modifier.height(2.dp))
                 Text(
                     text = "${node.id} • ${node.transportType.label}",
-                    fontFamily = FontFamily.Monospace,
+                    fontFamily = FontFamily.SansSerif,
                     fontSize = 10.sp,
                     color = TextDim
                 )
@@ -195,14 +195,14 @@ private fun DeviceCard(
                 Column(horizontalAlignment = Alignment.End) {
                     Text(
                         text = "${node.rssi} dBm",
-                        fontFamily = FontFamily.Monospace,
+                        fontFamily = FontFamily.SansSerif,
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Bold,
                         color = if (node.rssi > -75) NetworkGreen else WarningAmber
                     )
                     Text(
                         text = "BATT ${node.batteryPct}%",
-                        fontFamily = FontFamily.Monospace,
+                        fontFamily = FontFamily.SansSerif,
                         fontSize = 10.sp,
                         color = TextDim
                     )
@@ -210,14 +210,14 @@ private fun DeviceCard(
                 Spacer(modifier = Modifier.width(10.dp))
                 Box(
                     modifier = Modifier
-                        .clip(RoundedCornerShape(6.dp))
+                        .clip(RoundedCornerShape(0.dp))
                         .background(if (isPrioritized) SignalCyanBright else SurfaceNavy)
                         .clickable { onTogglePriority() }
                         .padding(horizontal = 8.dp, vertical = 4.dp)
                 ) {
                     Text(
                         text = if (isPrioritized) "DEFAULT" else "SET TARGET",
-                        fontFamily = FontFamily.Monospace,
+                        fontFamily = FontFamily.SansSerif,
                         fontSize = 9.sp,
                         fontWeight = FontWeight.Bold,
                         color = if (isPrioritized) DeepSpaceNavy else TextWhite

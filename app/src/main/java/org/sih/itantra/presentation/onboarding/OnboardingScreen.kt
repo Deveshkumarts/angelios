@@ -99,7 +99,7 @@ fun OnboardingScreen(
         ) {
             Text(
                 text = "iTANTRA // ONBOARDING // STEP ${currentPage + 1} OF 4",
-                fontFamily = FontFamily.Monospace,
+                fontFamily = FontFamily.SansSerif,
                 fontSize = 10.sp,
                 letterSpacing = 1.sp,
                 color = SignalCyanBright
@@ -108,7 +108,7 @@ fun OnboardingScreen(
             TextButton(onClick = onCompleteOnboarding) {
                 Text(
                     text = "SKIP",
-                    fontFamily = FontFamily.Monospace,
+                    fontFamily = FontFamily.SansSerif,
                     fontSize = 11.sp,
                     fontWeight = FontWeight.Bold,
                     color = TextDim
@@ -156,7 +156,7 @@ fun OnboardingScreen(
 
             Text(
                 text = page.tagline,
-                fontFamily = FontFamily.Monospace,
+                fontFamily = FontFamily.SansSerif,
                 fontSize = 11.sp,
                 fontWeight = FontWeight.Bold,
                 color = WarningAmber,
@@ -217,11 +217,11 @@ fun OnboardingScreen(
                     .fillMaxWidth()
                     .height(50.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = IsroBlueBright),
-                shape = RoundedCornerShape(10.dp)
+                shape = RoundedCornerShape(0.dp)
             ) {
                 Text(
                     text = if (currentPage < 3) "CONTINUE" else "SELECT LANGUAGE",
-                    fontFamily = FontFamily.Monospace,
+                    fontFamily = FontFamily.SansSerif,
                     fontWeight = FontWeight.Bold,
                     fontSize = 12.sp,
                     letterSpacing = 1.sp,

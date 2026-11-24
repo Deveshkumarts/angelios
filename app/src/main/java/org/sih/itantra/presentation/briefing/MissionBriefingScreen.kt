@@ -44,9 +44,9 @@ fun MissionBriefingScreen(
         // Top Mission Badge
         Row(
             modifier = Modifier
-                .clip(RoundedCornerShape(20.dp))
+                .clip(RoundedCornerShape(0.dp))
                 .background(CardNavyGlass)
-                .border(1.dp, BorderCyanHighlight, RoundedCornerShape(20.dp))
+                .border(1.dp, BorderCyanHighlight, RoundedCornerShape(0.dp))
                 .padding(horizontal = 14.dp, vertical = 6.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -59,7 +59,7 @@ fun MissionBriefingScreen(
             Spacer(modifier = Modifier.width(8.dp))
             Text(
                 text = "ISRO // SMART INDIA HACKATHON 2024",
-                fontFamily = FontFamily.Monospace,
+                fontFamily = FontFamily.SansSerif,
                 fontSize = 10.sp,
                 fontWeight = FontWeight.Bold,
                 color = SignalCyanBright,
@@ -104,7 +104,7 @@ fun MissionBriefingScreen(
         // 6 Core Architectural Capabilities Grid
         Text(
             text = "CORE TACTICAL CAPABILITIES",
-            fontFamily = FontFamily.Monospace,
+            fontFamily = FontFamily.SansSerif,
             fontSize = 11.sp,
             fontWeight = FontWeight.Bold,
             color = TextDim,
@@ -158,9 +158,9 @@ fun MissionBriefingScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(vertical = 5.dp)
-                    .clip(RoundedCornerShape(10.dp))
+                    .clip(RoundedCornerShape(0.dp))
                     .background(CardNavyGlass)
-                    .border(1.dp, BorderGlass, RoundedCornerShape(10.dp))
+                    .border(1.dp, BorderGlass, RoundedCornerShape(0.dp))
                     .padding(14.dp)
             ) {
                 Row(
@@ -170,9 +170,9 @@ fun MissionBriefingScreen(
                     Box(
                         modifier = Modifier
                             .size(36.dp)
-                            .clip(RoundedCornerShape(8.dp))
+                            .clip(RoundedCornerShape(0.dp))
                             .background(IsroBlue.copy(alpha = 0.25f))
-                            .border(1.dp, SignalCyanBright.copy(alpha = 0.3f), RoundedCornerShape(8.dp)),
+                            .border(1.dp, SignalCyanBright.copy(alpha = 0.3f), RoundedCornerShape(0.dp)),
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
@@ -200,7 +200,7 @@ fun MissionBriefingScreen(
                             )
                             Text(
                                 text = item.tag,
-                                fontFamily = FontFamily.Monospace,
+                                fontFamily = FontFamily.SansSerif,
                                 fontSize = 9.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = SignalCyanBright
@@ -230,11 +230,11 @@ fun MissionBriefingScreen(
                 .fillMaxWidth()
                 .height(48.dp),
             colors = ButtonDefaults.buttonColors(containerColor = IsroBlueBright),
-            shape = RoundedCornerShape(8.dp)
+            shape = RoundedCornerShape(0.dp)
         ) {
             Text(
                 text = "RETURN TO TACTICAL CONSOLE",
-                fontFamily = FontFamily.Monospace,
+                fontFamily = FontFamily.SansSerif,
                 fontWeight = FontWeight.Bold,
                 fontSize = 12.sp,
                 color = TextWhite
@@ -250,11 +250,11 @@ fun MissionBriefingScreen(
                 .height(46.dp),
             colors = ButtonDefaults.outlinedButtonColors(contentColor = SignalCyanBright),
             border = androidx.compose.foundation.BorderStroke(1.dp, SignalCyanBright.copy(alpha = 0.6f)),
-            shape = RoundedCornerShape(8.dp)
+            shape = RoundedCornerShape(0.dp)
         ) {
             Text(
                 text = "VIEW AUDIT & PERFORMANCE DIAGNOSTICS",
-                fontFamily = FontFamily.Monospace,
+                fontFamily = FontFamily.SansSerif,
                 fontWeight = FontWeight.Bold,
                 fontSize = 11.sp,
                 color = SignalCyanBright

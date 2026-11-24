@@ -60,18 +60,8 @@ fun EmergencySlideButton(
 
     val currentScale = if (isActive) pulseScale else 1.0f
     val borderColor = if (isActive) CyberNeonRedBright else CyberNeonRed.copy(alpha = idleGlowAlpha)
-    val backgroundBrush = if (isActive) {
-        Brush.horizontalGradient(
-            colors = listOf(CyberNeonRed, CyberNeonBloodOrange, CyberNeonRed)
-        )
-    } else {
-        Brush.verticalGradient(
-            colors = listOf(
-                CyberNeonRed.copy(alpha = idleGlowAlpha * 0.24f),
-                CyberGlassSurface.copy(alpha = 0.95f)
-            )
-        )
-    }
+    // Flat editorial fills: solid orange while transmitting, white with an orange frame at rest
+    val backgroundBrush = androidx.compose.ui.graphics.SolidColor(if (isActive) LabOrange else LabCard)
 
     Box(
         modifier = modifier
@@ -81,9 +71,9 @@ fun EmergencySlideButton(
                 scaleX = currentScale
                 scaleY = currentScale
             }
-            .clip(RoundedCornerShape(10.dp))
+            .clip(RoundedCornerShape(0.dp))
             .background(backgroundBrush)
-            .border(2.dp, borderColor, RoundedCornerShape(10.dp))
+            .border(2.dp, borderColor, RoundedCornerShape(0.dp))
             .clickable {
                 if (isActive) onCancelSos() else onTriggerSos()
             },
@@ -102,7 +92,7 @@ fun EmergencySlideButton(
             Spacer(modifier = Modifier.width(8.dp))
             Text(
                 text = if (isActive) "SOS ACTIVE - TAP TO CANCEL" else "TAP FOR EMERGENCY SOS BROADCAST",
-                fontFamily = FontFamily.Monospace,
+                fontFamily = FontFamily.SansSerif,
                 fontWeight = FontWeight.Bold,
                 fontSize = 12.sp,
                 color = CyberTextWhite,

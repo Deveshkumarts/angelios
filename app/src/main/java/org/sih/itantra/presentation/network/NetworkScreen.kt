@@ -33,6 +33,7 @@ import org.sih.itantra.presentation.ui.components.PulsingThreeDotIndicator
 import org.sih.itantra.presentation.ui.components.RadarMeshSweep
 import org.sih.itantra.presentation.ui.components.StaggeredEntrance
 import org.sih.itantra.presentation.ui.theme.*
+import org.sih.itantra.presentation.ui.components.*
 
 /**
  * 5. Tactical Mesh & Wi-Fi Devices Screen.
@@ -59,37 +60,21 @@ fun NetworkScreen(repository: CommunicationRepository) {
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
-        // 1. Header
+        // 1. Editorial header
         item {
             StaggeredEntrance(index = 0) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column {
-                        Text(
-                            text = "TACTICAL MESH & WI-FI",
-                            fontFamily = FontFamily.SansSerif,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 18.sp,
-                            color = CyberTextWhite
-                        )
-                        Text(
-                            text = "CONNECTED WI-FI DEVICES & AD-HOC PEERS",
-                            fontFamily = FontFamily.Monospace,
-                            fontSize = 10.sp,
-                            color = CyberNeonRedBright,
-                            letterSpacing = 0.5.sp
-                        )
+                LabScreenHeader(
+                    index = 3,
+                    total = 4,
+                    section = "Mesh & radios",
+                    title = "mesh",
+                    captions = listOf("Wi-Fi · BLE · LoRa", "Multi-hop", if (activeNode != null) "Private link" else "Broadcast"),
+                    status = when (nodes.size) {
+                        0 -> "No peers yet · scan below"
+                        1 -> "1 node reachable"
+                        else -> "${nodes.size} nodes reachable"
                     }
-                    Icon(
-                        imageVector = Icons.Default.Wifi,
-                        contentDescription = "Wi-Fi",
-                        tint = CyberNeonRedBright,
-                        modifier = Modifier.size(24.dp)
-                    )
-                }
+                )
             }
         }
 
@@ -99,9 +84,9 @@ fun NetworkScreen(repository: CommunicationRepository) {
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clip(RoundedCornerShape(10.dp))
+                        .clip(RoundedCornerShape(0.dp))
                         .background(CyberGlassSurface)
-                        .border(1.dp, CyberBorderRed, RoundedCornerShape(10.dp))
+                        .border(1.dp, CyberBorderRed, RoundedCornerShape(0.dp))
                         .padding(12.dp)
                 ) {
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -120,7 +105,7 @@ fun NetworkScreen(repository: CommunicationRepository) {
                                 Spacer(modifier = Modifier.width(6.dp))
                                 Text(
                                     text = "WI-FI DIRECT P2P NETWORK",
-                                    fontFamily = FontFamily.Monospace,
+                                    fontFamily = FontFamily.SansSerif,
                                     fontSize = 11.sp,
                                     fontWeight = FontWeight.Bold,
                                     color = CyberTextWhite
@@ -128,14 +113,14 @@ fun NetworkScreen(repository: CommunicationRepository) {
                             }
                             Box(
                                 modifier = Modifier
-                                    .clip(RoundedCornerShape(4.dp))
+                                    .clip(RoundedCornerShape(0.dp))
                                     .background(CyberMatrixGreen.copy(alpha = 0.2f))
-                                    .border(1.dp, CyberMatrixGreen, RoundedCornerShape(4.dp))
+                                    .border(1.dp, CyberMatrixGreen, RoundedCornerShape(0.dp))
                                     .padding(horizontal = 6.dp, vertical = 2.dp)
                             ) {
                                 Text(
                                     text = "ACTIVE",
-                                    fontFamily = FontFamily.Monospace,
+                                    fontFamily = FontFamily.SansSerif,
                                     fontSize = 9.sp,
                                     fontWeight = FontWeight.Bold,
                                     color = CyberMatrixGreen
@@ -150,16 +135,16 @@ fun NetworkScreen(repository: CommunicationRepository) {
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
                             Column {
-                                Text(text = "SUBNET BROADCAST", fontFamily = FontFamily.Monospace, fontSize = 9.sp, color = CyberTextDim)
-                                Text(text = "255.255.255.255", fontFamily = FontFamily.Monospace, fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = CyberTextWhite)
+                                Text(text = "SUBNET BROADCAST", fontFamily = FontFamily.SansSerif, fontSize = 9.sp, color = CyberTextDim)
+                                Text(text = "255.255.255.255", fontFamily = FontFamily.SansSerif, fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = CyberTextWhite)
                             }
                             Column {
-                                Text(text = "MESH UDP PORT", fontFamily = FontFamily.Monospace, fontSize = 9.sp, color = CyberTextDim)
-                                Text(text = "8988", fontFamily = FontFamily.Monospace, fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = CyberLaserCyan)
+                                Text(text = "MESH UDP PORT", fontFamily = FontFamily.SansSerif, fontSize = 9.sp, color = CyberTextDim)
+                                Text(text = "8988", fontFamily = FontFamily.SansSerif, fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = CyberLaserCyan)
                             }
                             Column {
-                                Text(text = "ENCRYPTION", fontFamily = FontFamily.Monospace, fontSize = 9.sp, color = CyberTextDim)
-                                Text(text = "AES-256", fontFamily = FontFamily.Monospace, fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = CyberMatrixGreen)
+                                Text(text = "ENCRYPTION", fontFamily = FontFamily.SansSerif, fontSize = 9.sp, color = CyberTextDim)
+                                Text(text = "AES-256", fontFamily = FontFamily.SansSerif, fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = CyberMatrixGreen)
                             }
                         }
                     }
@@ -191,7 +176,7 @@ fun NetworkScreen(repository: CommunicationRepository) {
                     colors = ButtonDefaults.buttonColors(
                         containerColor = scanBtnBg
                     ),
-                    shape = RoundedCornerShape(8.dp),
+                    shape = RoundedCornerShape(0.dp),
                     border = if (isScanning) BorderStroke(1.dp, CyberLaserCyan) else null,
                     modifier = Modifier
                         .fillMaxWidth()
@@ -206,7 +191,7 @@ fun NetworkScreen(repository: CommunicationRepository) {
                         Spacer(modifier = Modifier.width(10.dp))
                         Text(
                             text = "SCANNING FOR WI-FI PEERS...",
-                            fontFamily = FontFamily.Monospace,
+                            fontFamily = FontFamily.SansSerif,
                             fontSize = 11.sp,
                             fontWeight = FontWeight.Bold,
                             color = CyberLaserCyan
@@ -221,7 +206,7 @@ fun NetworkScreen(repository: CommunicationRepository) {
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
                             text = "SCAN FOR CONNECTED WI-FI DEVICES",
-                            fontFamily = FontFamily.Monospace,
+                            fontFamily = FontFamily.SansSerif,
                             fontSize = 11.sp,
                             fontWeight = FontWeight.Bold,
                             color = CyberTextWhite
@@ -233,7 +218,7 @@ fun NetworkScreen(repository: CommunicationRepository) {
                     scanMessage?.let {
                         Text(
                             text = it,
-                            fontFamily = FontFamily.Monospace,
+                            fontFamily = FontFamily.SansSerif,
                             fontSize = 10.sp,
                             color = CyberLaserCyan,
                             modifier = Modifier.padding(top = 4.dp, start = 4.dp)
@@ -249,7 +234,7 @@ fun NetworkScreen(repository: CommunicationRepository) {
                 Column {
                     Text(
                         text = "LIVE MESH RADAR SWEEP",
-                        fontFamily = FontFamily.Monospace,
+                        fontFamily = FontFamily.SansSerif,
                         fontSize = 11.sp,
                         fontWeight = FontWeight.Bold,
                         color = CyberNeonRedBright
@@ -270,9 +255,9 @@ fun NetworkScreen(repository: CommunicationRepository) {
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clip(RoundedCornerShape(10.dp))
+                        .clip(RoundedCornerShape(0.dp))
                         .background(CyberGlassSurface)
-                        .border(1.dp, CyberBorderRed, RoundedCornerShape(10.dp))
+                        .border(1.dp, CyberBorderRed, RoundedCornerShape(0.dp))
                         .padding(14.dp)
                 ) {
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -284,7 +269,7 @@ fun NetworkScreen(repository: CommunicationRepository) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Text(
                                     text = "CONNECTED DEVICES",
-                                    fontFamily = FontFamily.Monospace,
+                                    fontFamily = FontFamily.SansSerif,
                                     fontSize = 12.sp,
                                     fontWeight = FontWeight.Bold,
                                     color = CyberTextWhite
@@ -292,14 +277,14 @@ fun NetworkScreen(repository: CommunicationRepository) {
                                 Spacer(modifier = Modifier.width(8.dp))
                                 Box(
                                     modifier = Modifier
-                                        .clip(RoundedCornerShape(4.dp))
+                                        .clip(RoundedCornerShape(0.dp))
                                         .background(CyberNeonRed.copy(alpha = 0.25f))
-                                        .border(1.dp, CyberNeonRedBright, RoundedCornerShape(4.dp))
+                                        .border(1.dp, CyberNeonRedBright, RoundedCornerShape(0.dp))
                                         .padding(horizontal = 8.dp, vertical = 2.dp)
                                 ) {
                                     Text(
                                         text = "${nodes.size} ONLINE",
-                                        fontFamily = FontFamily.Monospace,
+                                        fontFamily = FontFamily.SansSerif,
                                         fontSize = 10.sp,
                                         fontWeight = FontWeight.Bold,
                                         color = CyberNeonRedBright
@@ -309,7 +294,7 @@ fun NetworkScreen(repository: CommunicationRepository) {
 
                             Text(
                                 text = if (activeNode != null) "PRIVATE: ${activeNode?.name}" else "MODE: BROADCAST ALL",
-                                fontFamily = FontFamily.Monospace,
+                                fontFamily = FontFamily.SansSerif,
                                 fontSize = 10.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = if (activeNode != null) CyberNeonRedBright else CyberMatrixGreen
@@ -337,9 +322,9 @@ fun NetworkScreen(repository: CommunicationRepository) {
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .clip(RoundedCornerShape(10.dp))
+                            .clip(RoundedCornerShape(0.dp))
                             .background(CyberGlassSurface)
-                            .border(1.dp, CyberBorderRed, RoundedCornerShape(10.dp))
+                            .border(1.dp, CyberBorderRed, RoundedCornerShape(0.dp))
                             .padding(20.dp),
                         contentAlignment = Alignment.Center
                     ) {
@@ -353,7 +338,7 @@ fun NetworkScreen(repository: CommunicationRepository) {
                             Spacer(modifier = Modifier.height(8.dp))
                             Text(
                                 text = "NO OTHER MESH OPERATORS DETECTED YET",
-                                fontFamily = FontFamily.Monospace,
+                                fontFamily = FontFamily.SansSerif,
                                 fontSize = 11.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = CyberTextWhite
@@ -416,9 +401,9 @@ private fun WifiConnectedDeviceCard(
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(10.dp))
+            .clip(RoundedCornerShape(0.dp))
             .background(cardBg)
-            .border(1.dp, cardBorderColor, RoundedCornerShape(10.dp))
+            .border(1.dp, cardBorderColor, RoundedCornerShape(0.dp))
             .clickable { onSelect() }
             .padding(14.dp)
     ) {
@@ -456,13 +441,13 @@ private fun WifiConnectedDeviceCard(
                             Spacer(modifier = Modifier.width(6.dp))
                             Box(
                                 modifier = Modifier
-                                    .clip(RoundedCornerShape(3.dp))
+                                    .clip(RoundedCornerShape(0.dp))
                                     .background(CyberMatrixGreen.copy(alpha = 0.2f))
                                     .padding(horizontal = 4.dp, vertical = 1.dp)
                             ) {
                                 Text(
                                     text = "CONNECTED",
-                                    fontFamily = FontFamily.Monospace,
+                                    fontFamily = FontFamily.SansSerif,
                                     fontSize = 8.5.sp,
                                     fontWeight = FontWeight.Bold,
                                     color = CyberMatrixGreen
@@ -471,7 +456,7 @@ private fun WifiConnectedDeviceCard(
                         }
                         Text(
                             text = "NODE: ${node.id} • ${node.transportType.label} • ${node.hopCount} HOP",
-                            fontFamily = FontFamily.Monospace,
+                            fontFamily = FontFamily.SansSerif,
                             fontSize = 10.sp,
                             color = CyberTextMuted
                         )
@@ -481,14 +466,14 @@ private fun WifiConnectedDeviceCard(
                 Column(horizontalAlignment = Alignment.End) {
                     Text(
                         text = "${node.rssi} dBm",
-                        fontFamily = FontFamily.Monospace,
+                        fontFamily = FontFamily.SansSerif,
                         fontWeight = FontWeight.Bold,
                         fontSize = 12.sp,
                         color = rssiColor
                     )
                     Text(
                         text = "BATT: ${node.batteryPct}%",
-                        fontFamily = FontFamily.Monospace,
+                        fontFamily = FontFamily.SansSerif,
                         fontSize = 10.sp,
                         color = if (node.batteryPct < 20) CyberNeonRedBright else CyberTextDim
                     )
@@ -503,20 +488,20 @@ private fun WifiConnectedDeviceCard(
             ) {
                 Text(
                     text = if (isSelected) "● Private link active with this node" else "○ Tap to start private 1-to-1 comms",
-                    fontFamily = FontFamily.Monospace,
+                    fontFamily = FontFamily.SansSerif,
                     fontSize = 9.5.sp,
                     color = if (isSelected) CyberNeonRedBright else CyberTextDim
                 )
                 Box(
                     modifier = Modifier
-                        .clip(RoundedCornerShape(4.dp))
+                        .clip(RoundedCornerShape(0.dp))
                         .background(if (isSelected) CyberNeonRed else CyberCardDark)
-                        .border(1.dp, if (isSelected) CyberNeonRedBright else CyberBorderRed, RoundedCornerShape(4.dp))
+                        .border(1.dp, if (isSelected) CyberNeonRedBright else CyberBorderRed, RoundedCornerShape(0.dp))
                         .padding(horizontal = 8.dp, vertical = 3.dp)
                 ) {
                     Text(
                         text = if (isSelected) "UNLINK" else "CONNECT PRIVATE",
-                        fontFamily = FontFamily.Monospace,
+                        fontFamily = FontFamily.SansSerif,
                         fontSize = 9.sp,
                         fontWeight = FontWeight.Bold,
                         color = if (isSelected) CyberTextWhite else CyberNeonRedBright

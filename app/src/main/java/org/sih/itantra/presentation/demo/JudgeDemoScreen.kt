@@ -72,7 +72,7 @@ fun JudgeDemoScreen(repository: CommunicationRepository) {
                 )
                 Text(
                     text = "DUAL-DEVICE (PHONE A ➔ PHONE B) SIMULATION",
-                    fontFamily = FontFamily.Monospace,
+                    fontFamily = FontFamily.SansSerif,
                     fontSize = 10.sp,
                     color = SignalCyanBright
                 )
@@ -83,7 +83,7 @@ fun JudgeDemoScreen(repository: CommunicationRepository) {
         Spacer(modifier = Modifier.height(14.dp))
 
         // 1. Language Controls for Demonstration
-        Text(text = "1. SELECT SPOKEN & RECEIVER LANGUAGES", fontFamily = FontFamily.Monospace, fontSize = 10.sp, color = TextDim)
+        Text(text = "1. SELECT SPOKEN & RECEIVER LANGUAGES", fontFamily = FontFamily.SansSerif, fontSize = 10.sp, color = TextDim)
         Spacer(modifier = Modifier.height(6.dp))
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             LanguageSelectorCard("PHONE A (SPEAKER)", sourceLang, Modifier.weight(1f)) {
@@ -118,7 +118,7 @@ fun JudgeDemoScreen(repository: CommunicationRepository) {
         Spacer(modifier = Modifier.height(14.dp))
 
         // 2. Simulated Network Condition
-        Text(text = "2. SELECT NETWORK LINK DEGRADATION", fontFamily = FontFamily.Monospace, fontSize = 10.sp, color = TextDim)
+        Text(text = "2. SELECT NETWORK LINK DEGRADATION", fontFamily = FontFamily.SansSerif, fontSize = 10.sp, color = TextDim)
         Spacer(modifier = Modifier.height(6.dp))
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             LinkQuality.entries.forEach { condition ->
@@ -126,9 +126,9 @@ fun JudgeDemoScreen(repository: CommunicationRepository) {
                 Box(
                     modifier = Modifier
                         .weight(1f)
-                        .clip(RoundedCornerShape(6.dp))
+                        .clip(RoundedCornerShape(0.dp))
                         .background(if (isSelected) SignalCyanBright else CardNavyGlass)
-                        .border(1.dp, if (isSelected) SignalCyanBright else BorderGlass, RoundedCornerShape(6.dp))
+                        .border(1.dp, if (isSelected) SignalCyanBright else BorderGlass, RoundedCornerShape(0.dp))
                         .clickable {
                             networkSimCondition = condition
                             repository.networkMonitor.setSimulatedCondition(condition)
@@ -138,7 +138,7 @@ fun JudgeDemoScreen(repository: CommunicationRepository) {
                 ) {
                     Text(
                         text = condition.name,
-                        fontFamily = FontFamily.Monospace,
+                        fontFamily = FontFamily.SansSerif,
                         fontSize = 9.sp,
                         fontWeight = FontWeight.Bold,
                         color = if (isSelected) DeepSpaceNavy else TextWhite
@@ -196,13 +196,13 @@ fun JudgeDemoScreen(repository: CommunicationRepository) {
                 .fillMaxWidth()
                 .height(48.dp),
             colors = ButtonDefaults.buttonColors(containerColor = IsroBlueBright),
-            shape = RoundedCornerShape(8.dp)
+            shape = RoundedCornerShape(0.dp)
         ) {
             Icon(Icons.Default.PlayArrow, contentDescription = "Run", tint = TextWhite)
             Spacer(modifier = Modifier.width(6.dp))
             Text(
                 text = if (isRunningDemo) "EXECUTING PIPELINE STEP $currentStep / 6..." else "RUN END-TO-END DEMONSTRATION",
-                fontFamily = FontFamily.Monospace,
+                fontFamily = FontFamily.SansSerif,
                 fontWeight = FontWeight.Bold,
                 fontSize = 11.sp,
                 color = TextWhite
@@ -215,9 +215,9 @@ fun JudgeDemoScreen(repository: CommunicationRepository) {
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .clip(RoundedCornerShape(10.dp))
+                .clip(RoundedCornerShape(0.dp))
                 .background(CardNavyGlass)
-                .border(1.dp, BorderGlass, RoundedCornerShape(10.dp))
+                .border(1.dp, BorderGlass, RoundedCornerShape(0.dp))
                 .padding(14.dp)
         ) {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -236,14 +236,14 @@ fun JudgeDemoScreen(repository: CommunicationRepository) {
 private fun LanguageSelectorCard(title: String, language: Language, modifier: Modifier = Modifier, onClick: () -> Unit) {
     Box(
         modifier = modifier
-            .clip(RoundedCornerShape(8.dp))
+            .clip(RoundedCornerShape(0.dp))
             .background(CardNavyGlass)
-            .border(1.dp, BorderGlass, RoundedCornerShape(8.dp))
+            .border(1.dp, BorderGlass, RoundedCornerShape(0.dp))
             .clickable { onClick() }
             .padding(10.dp)
     ) {
         Column {
-            Text(text = title, fontFamily = FontFamily.Monospace, fontSize = 9.sp, color = TextDim)
+            Text(text = title, fontFamily = FontFamily.SansSerif, fontSize = 9.sp, color = TextDim)
             Spacer(modifier = Modifier.height(4.dp))
             Text(text = language.displayName, fontFamily = FontFamily.SansSerif, fontWeight = FontWeight.Bold, fontSize = 13.sp, color = TextWhite)
             Text(text = language.nativeName, fontFamily = FontFamily.SansSerif, fontSize = 11.sp, color = SignalCyanBright)
@@ -257,14 +257,14 @@ private fun StepRow(stepNumber: Int, title: String, content: String, isComplete:
         Box(
             modifier = Modifier
                 .size(22.dp)
-                .clip(RoundedCornerShape(4.dp))
+                .clip(RoundedCornerShape(0.dp))
                 .background(if (isComplete) NetworkGreen else SurfaceNavy)
-                .border(1.dp, if (isComplete) NetworkGreen else BorderGlass, RoundedCornerShape(4.dp)),
+                .border(1.dp, if (isComplete) NetworkGreen else BorderGlass, RoundedCornerShape(0.dp)),
             contentAlignment = Alignment.Center
         ) {
             Text(
                 text = if (isComplete) "✓" else "$stepNumber",
-                fontFamily = FontFamily.Monospace,
+                fontFamily = FontFamily.SansSerif,
                 fontSize = 11.sp,
                 fontWeight = FontWeight.Bold,
                 color = if (isComplete) DeepSpaceNavy else TextDim
@@ -272,7 +272,7 @@ private fun StepRow(stepNumber: Int, title: String, content: String, isComplete:
         }
         Spacer(modifier = Modifier.width(10.dp))
         Column {
-            Text(text = title, fontFamily = FontFamily.Monospace, fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = if (isComplete) TextWhite else TextDim)
+            Text(text = title, fontFamily = FontFamily.SansSerif, fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = if (isComplete) TextWhite else TextDim)
             Text(text = content, fontFamily = FontFamily.SansSerif, fontSize = 11.sp, color = if (isComplete) SignalCyanBright else TextDim)
         }
     }

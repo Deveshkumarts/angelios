@@ -149,14 +149,7 @@ fun PttHoldButton(
                         scaleY = buttonScale
                     }
                     .clip(CircleShape)
-                    .background(
-                        Brush.radialGradient(
-                            colors = listOf(
-                                activeColor.copy(alpha = 0.85f),
-                                CyberCardDark
-                            )
-                        )
-                    )
+                    .background(activeColor)
                     .border(2.dp, activeColor, CircleShape)
                     .pointerInput(Unit) {
                         detectTapGestures(
@@ -189,7 +182,7 @@ fun PttHoldButton(
                         text = if (isPressedDown) "TRANSMITTING" else "HOLD PTT",
                         fontSize = 10.5.sp,
                         fontWeight = FontWeight.Bold,
-                        fontFamily = FontFamily.Monospace,
+                        fontFamily = FontFamily.SansSerif,
                         letterSpacing = 1.sp,
                         color = CyberTextWhite
                     )
@@ -211,7 +204,7 @@ fun PttHoldButton(
                 PttState.FAILED -> "⚠ RETRYING TRANSMISSION..."
                 PttState.EMERGENCY -> "⚡ CRITICAL SOS BROADCAST"
             },
-            fontFamily = FontFamily.Monospace,
+            fontFamily = FontFamily.SansSerif,
             fontWeight = FontWeight.SemiBold,
             fontSize = 12.sp,
             color = activeColor

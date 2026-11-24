@@ -49,10 +49,10 @@ import org.sih.itantra.service.SosNavigationBus
 sealed class Screen(val route: String, val label: String, val icon: ImageVector) {
     data object Splash : Screen("splash", "SPLASH", Icons.Default.Sensors)
     data object Register : Screen("register", "Register", Icons.Default.AppRegistration)
-    data object Talk : Screen("talk", "CONVO", Icons.Default.RecordVoiceOver)
+    data object Talk : Screen("talk", "Talk", Icons.Default.RecordVoiceOver)
     data object Emergency : Screen("emergency", "SOS", Icons.Default.Warning)
-    data object Network : Screen("network", "MESH", Icons.Default.Hub)
-    data object Profile : Screen("profile", "PROFILE", Icons.Default.Person)
+    data object Network : Screen("network", "Mesh", Icons.Default.Hub)
+    data object Profile : Screen("profile", "Me", Icons.Default.Person)
 }
 
 val DashboardNavItems = listOf(
@@ -134,121 +134,107 @@ fun AppNavigation(repository: CommunicationRepository) {
         bottomBar = {
             if (!isFullScreen) {
                 val selectedIndex = NavOrder.indexOf(currentRoute).coerceAtLeast(0)
-                val pillOffsetRatio by animateFloatAsState(
+                val barOffsetRatio by animateFloatAsState(
                     targetValue = selectedIndex.toFloat(),
-                    animationSpec = tween(280, easing = FastOutSlowInEasing),
-                    label = "navPillOffset"
+                    animationSpec = tween(320, easing = FastOutSlowInEasing),
+                    label = "navBarOffset"
                 )
 
-                BoxWithConstraints(
+                Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(64.dp)
-                        .background(CyberVoidBlack)
-                        .border(
-                            1.dp,
-                            CyberBorderRed,
-                            RoundedCornerShape(topStart = 14.dp, topEnd = 14.dp)
-                        )
+                        .background(LabCard)
                 ) {
-                    val tabWidth = maxWidth / DashboardNavItems.size
-
-                    // Active Tab Sliding Highlight Pill
-                    Box(
+                    Box(Modifier.fillMaxWidth().height(1.dp).background(LabInk))
+                    BoxWithConstraints(
                         modifier = Modifier
-                            .offset(x = tabWidth * pillOffsetRatio)
-                            .width(tabWidth)
-                            .fillMaxHeight()
-                            .padding(horizontal = 6.dp, vertical = 6.dp)
-                            .clip(RoundedCornerShape(10.dp))
-                            .background(
-                                if (currentRoute == Screen.Emergency.route) CyberNeonRed.copy(alpha = 0.28f)
-                                else CyberNeonRed.copy(alpha = 0.16f)
-                            )
-                            .border(
-                                1.dp,
-                                if (currentRoute == Screen.Emergency.route) CyberNeonRedBright.copy(alpha = 0.8f)
-                                else CyberBorderRedBright.copy(alpha = 0.45f),
-                                RoundedCornerShape(10.dp)
-                            )
-                    )
-
-                    // Row of Interactive Tabs
-                    Row(
-                        modifier = Modifier.fillMaxSize(),
-                        verticalAlignment = Alignment.CenterVertically
+                            .fillMaxWidth()
+                            .height(62.dp)
                     ) {
-                        DashboardNavItems.forEach { screen ->
-                            val isSelected = currentRoute == screen.route
-                            val isEmergency = screen == Screen.Emergency
+                        val tabWidth = maxWidth / DashboardNavItems.size
 
-                            val iconScale by animateFloatAsState(
-                                targetValue = if (isSelected) 1.15f else 1.0f,
-                                animationSpec = spring(
-                                    dampingRatio = 0.5f,
-                                    stiffness = Spring.StiffnessMedium
-                                ),
-                                label = "tabIconScale"
-                            )
+                        // Sliding orange block marking the active tab
+                        Box(
+                            modifier = Modifier
+                                .offset(x = tabWidth * barOffsetRatio)
+                                .width(tabWidth)
+                                .height(4.dp)
+                                .background(LabOrange)
+                        )
 
-                            val iconColor by animateColorAsState(
-                                targetValue = when {
-                                    isEmergency -> if (isSelected) CyberNeonRedBright else CyberNeonRed.copy(alpha = 0.85f)
-                                    isSelected -> CyberNeonRedBright
-                                    else -> CyberTextDim
-                                },
-                                animationSpec = tween(200),
-                                label = "tabIconColor"
-                            )
+                        Row(
+                            modifier = Modifier.fillMaxSize(),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            DashboardNavItems.forEachIndexed { i, screen ->
+                                val isSelected = currentRoute == screen.route
+                                val isEmergency = screen == Screen.Emergency
+                                val labelColor by animateColorAsState(
+                                    targetValue = when {
+                                        isSelected -> LabInk
+                                        isEmergency -> LabOrangeDeep
+                                        else -> LabInkDim
+                                    },
+                                    animationSpec = tween(200),
+                                    label = "tabLabelColor"
+                                )
 
-                            Column(
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .fillMaxHeight()
-                                    .clickable(
-                                        interactionSource = remember { MutableInteractionSource() },
-                                        indication = null
-                                    ) {
-                                        if (currentRoute != screen.route) {
-                                            navController.navigate(screen.route) {
-                                                popUpTo(navController.graph.findStartDestination().id) {
-                                                    saveState = true
+                                Row(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .fillMaxHeight()
+                                        .clickable(
+                                            interactionSource = remember { MutableInteractionSource() },
+                                            indication = null
+                                        ) {
+                                            if (currentRoute != screen.route) {
+                                                navController.navigate(screen.route) {
+                                                    popUpTo(navController.graph.findStartDestination().id) {
+                                                        saveState = true
+                                                    }
+                                                    launchSingleTop = true
+                                                    restoreState = true
                                                 }
-                                                launchSingleTop = true
-                                                restoreState = true
                                             }
                                         }
-                                    },
-                                horizontalAlignment = Alignment.CenterHorizontally,
-                                verticalArrangement = Arrangement.Center
-                            ) {
-                                Icon(
-                                    imageVector = screen.icon,
-                                    contentDescription = screen.label,
-                                    tint = iconColor,
-                                    modifier = Modifier
-                                        .size(20.dp)
-                                        .graphicsLayer {
-                                            scaleX = iconScale
-                                            scaleY = iconScale
-                                        }
-                                )
-                                Spacer(modifier = Modifier.height(3.dp))
-                                Text(
-                                    text = screen.label,
-                                    fontFamily = FontFamily.Monospace,
-                                    fontSize = 9.5.sp,
-                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                                    letterSpacing = 0.5.sp,
-                                    color = if (isSelected) CyberTextWhite else CyberTextDim
-                                )
+                                        .padding(start = 12.dp, top = 6.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Column {
+                                        Text(
+                                            text = "%02d".format(i + 1),
+                                            fontFamily = LabFont,
+                                            fontSize = 9.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            letterSpacing = 1.sp,
+                                            color = if (isSelected) LabOrangeDeep else LabInkDim
+                                        )
+                                        Text(
+                                            text = screen.label.lowercase(),
+                                            fontFamily = LabFont,
+                                            fontSize = 16.sp,
+                                            fontWeight = if (isSelected) FontWeight.Black else FontWeight.Bold,
+                                            letterSpacing = (-0.4).sp,
+                                            color = labelColor
+                                        )
+                                    }
+                                }
+                                if (i < DashboardNavItems.lastIndex) {
+                                    Box(
+                                        Modifier
+                                            .padding(vertical = 16.dp)
+                                            .width(1.dp)
+                                            .fillMaxHeight()
+                                            .background(LabHairline)
+                                    )
+                                }
                             }
                         }
                     }
                 }
             }
         },
-        containerColor = CyberVoidBlack
+        containerColor = LabPaper
     ) { paddingValues ->
         Box(
             modifier = Modifier

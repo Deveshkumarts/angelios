@@ -1,15 +1,13 @@
 ﻿package org.sih.itantra.presentation.ui.components
 
 import androidx.compose.animation.core.*
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -17,22 +15,18 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import org.sih.itantra.R
 import org.sih.itantra.domain.model.Language
 import org.sih.itantra.domain.model.NetworkNode
 import org.sih.itantra.presentation.ui.theme.*
 import org.sih.itantra.storage.UserProfile
 
 /**
- * Cyberpunk Glassmorphic Red Tactical Command Top Bar.
- * Incorporates AKHET team crest, operator credentials,
- * private targeting vs broadcast mode, and 1-tap language switch.
+ * Editorial top bar: "angelios." wordmark with the operator's callsign underneath,
+ * a caption-style language switch ("EN ▾") and a square orange SOS block on the right.
+ * A full-width orange strip appears while a private link is active or SOS is transmitting.
  */
 @Composable
 fun TacticalTopBar(
@@ -46,10 +40,10 @@ fun TacticalTopBar(
 ) {
     val infiniteTransition = rememberInfiniteTransition(label = "sosTopPulse")
     val pulseAlpha by infiniteTransition.animateFloat(
-        initialValue = 0.5f,
+        initialValue = 0.55f,
         targetValue = 1.0f,
         animationSpec = infiniteRepeatable(
-            animation = tween(800, easing = FastOutSlowInEasing),
+            animation = tween(700, easing = FastOutSlowInEasing),
             repeatMode = RepeatMode.Reverse
         ),
         label = "pulseAlpha"
@@ -58,142 +52,117 @@ fun TacticalTopBar(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .background(CyberVoidBlack)
-            .border(width = 0.5.dp, color = CyberBorderSubtle)
+            .background(LabPaper)
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 14.dp, vertical = 8.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
+                .padding(start = 16.dp, end = 16.dp, top = 10.dp, bottom = 10.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Left: AKHET Logo & Operator Call-Sign
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Box(
-                    modifier = Modifier
-                        .size(34.dp)
-                        .clip(CircleShape)
-                        .background(CyberGlassSurface)
-                        .border(1.5.dp, if (isSosActive) CyberNeonRed else CyberBorderRedBright, CircleShape)
-                        .padding(3.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Image(
-                        painter = painterResource(id = R.drawable.ic_akhet_logo),
-                        contentDescription = "AKHET Logo",
-                        modifier = Modifier.fillMaxSize()
+            // Wordmark + operator line
+            Column(modifier = Modifier.weight(1f)) {
+                LabWordmark("angelios", fontSize = 24.sp, dotColor = LabOrange)
+                Spacer(Modifier.height(2.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(
+                        Modifier
+                            .size(6.dp)
+                            .clip(CircleShape)
+                            .background(
+                                when {
+                                    isSosActive -> LabOrange
+                                    activeTargetNode != null -> LabOrange
+                                    else -> LabGreen
+                                }
+                            )
                     )
-                }
-
-                Spacer(modifier = Modifier.width(10.dp))
-
-                Column {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(
-                            text = userProfile.username.uppercase(),
-                            fontFamily = FontFamily.Monospace,
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = CyberTextWhite,
-                            letterSpacing = 0.5.sp
-                        )
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Box(
-                            modifier = Modifier
-                                .size(6.dp)
-                                .clip(CircleShape)
-                                .background(if (isSosActive) CyberNeonRed else CyberMatrixGreen)
-                        )
-                    }
-
-                    Text(
-                        text = if (isSosActive) {
-                            "CRITICAL SOS • TRANSMITTING"
-                        } else if (activeTargetNode != null) {
-                            "LINK: ${activeTargetNode.name}"
-                        } else {
-                            "MODE: BROADCAST ALL"
-                        },
-                        fontFamily = FontFamily.Monospace,
-                        fontSize = 9.sp,
-                        fontWeight = FontWeight.Medium,
-                        color = if (isSosActive) CyberNeonRedBright else if (activeTargetNode != null) CyberMatrixGreen else CyberTextDim
+                    Spacer(Modifier.width(6.dp))
+                    LabLabel(
+                        text = "${userProfile.callsign} · ${userProfile.username}",
+                        color = LabInkMuted,
+                        maxLines = 1
                     )
                 }
             }
 
-            // Right: Language Chip & Emergency Warning Trigger
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                // Language Pill
-                Box(
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(6.dp))
-                        .background(CyberGlassSurface)
-                        .border(1.dp, CyberBorderRed, RoundedCornerShape(6.dp))
-                        .clickable { onOpenLanguage() }
-                        .padding(horizontal = 9.dp, vertical = 5.dp)
-                ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(
-                            text = selectedLanguage.nativeName,
-                            fontFamily = FontFamily.SansSerif,
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = CyberNeonRedBright
-                        )
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text(
-                            text = "(${selectedLanguage.code.uppercase()})",
-                            fontFamily = FontFamily.Monospace,
-                            fontSize = 8.5.sp,
-                            color = CyberTextDim
-                        )
-                    }
-                }
-
-                // SOS Trigger / Active Strobe
-                Box(
-                    modifier = Modifier
-                        .size(30.dp)
-                        .clip(CircleShape)
-                        .background(if (isSosActive) CyberNeonRed.copy(alpha = pulseAlpha) else CyberNeonRed.copy(alpha = 0.2f))
-                        .border(1.dp, if (isSosActive) CyberNeonRedBright else CyberBorderRed, CircleShape)
-                        .clickable { onTriggerSos() },
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Warning,
-                        contentDescription = "SOS",
-                        tint = if (isSosActive) CyberTextWhite else CyberNeonRedBright,
-                        modifier = Modifier.size(16.dp)
-                    )
-                }
-            }
-        }
-
-        // Active Private Communication Banner
-        if (activeTargetNode != null && !isSosActive) {
+            // Language switch, styled like the reference's "NEW ARRIVALS ▾" menu caption
             Row(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .background(CyberNeonRed.copy(alpha = 0.15f))
-                    .padding(horizontal = 14.dp, vertical = 3.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
+                    .clickable { onOpenLanguage() }
+                    .padding(horizontal = 6.dp, vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "PRIVATE LINK WITH [${activeTargetNode.name}] ACTIVE (Tap to revert to Broadcast)",
-                    fontFamily = FontFamily.Monospace,
-                    fontSize = 9.5.sp,
-                    color = CyberNeonRedBright,
-                    fontWeight = FontWeight.SemiBold,
-                    modifier = Modifier.clickable { onClearTarget() }
+                    text = selectedLanguage.nativeName,
+                    fontFamily = LabFont,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 12.sp,
+                    color = LabInk
+                )
+                Spacer(Modifier.width(4.dp))
+                LabLabel(selectedLanguage.code, color = LabInkDim)
+                Icon(
+                    Icons.Default.KeyboardArrowDown,
+                    contentDescription = "Change language",
+                    tint = LabInk,
+                    modifier = Modifier.size(16.dp)
                 )
             }
+
+            Spacer(Modifier.width(8.dp))
+
+            // Square SOS block
+            Box(
+                modifier = Modifier
+                    .size(width = 52.dp, height = 36.dp)
+                    .background(if (isSosActive) LabOrange.copy(alpha = pulseAlpha) else LabOrange)
+                    .clickable { onTriggerSos() },
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = "SOS",
+                    fontFamily = LabFont,
+                    fontWeight = FontWeight.Black,
+                    fontSize = 13.sp,
+                    letterSpacing = 1.sp,
+                    color = LabInk
+                )
+            }
+        }
+
+        // Status strip
+        when {
+            isSosActive -> StatusStrip(text = "SOS transmitting to every reachable node", onClick = onTriggerSos)
+            activeTargetNode != null -> StatusStrip(
+                text = "Private link · ${activeTargetNode.name} — tap to return to broadcast",
+                onClick = onClearTarget,
+                closable = true
+            )
+        }
+
+        Box(
+            Modifier
+                .fillMaxWidth()
+                .height(1.dp)
+                .background(LabInk)
+        )
+    }
+}
+
+@Composable
+private fun StatusStrip(text: String, onClick: () -> Unit, closable: Boolean = false) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(LabOrange)
+            .clickable { onClick() }
+            .padding(horizontal = 16.dp, vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        LabLabel(text, color = LabInk, modifier = Modifier.weight(1f), maxLines = 1)
+        if (closable) {
+            Icon(Icons.Default.Close, contentDescription = "Clear private link", tint = LabInk, modifier = Modifier.size(14.dp))
         }
     }
 }

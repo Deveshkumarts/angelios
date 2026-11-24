@@ -66,7 +66,7 @@ fun HomeScreen(
                 )
                 Text(
                     text = "ISRO-GRADE TACTICAL COMMS",
-                    fontFamily = FontFamily.Monospace,
+                    fontFamily = FontFamily.SansSerif,
                     fontSize = 10.sp,
                     color = SignalCyanBright,
                     letterSpacing = 0.5.sp
@@ -76,9 +76,9 @@ fun HomeScreen(
             // Language Selector Chip
             Box(
                 modifier = Modifier
-                    .clip(RoundedCornerShape(8.dp))
+                    .clip(RoundedCornerShape(0.dp))
                     .background(CardNavyGlass)
-                    .border(1.dp, BorderGlass, RoundedCornerShape(8.dp))
+                    .border(1.dp, BorderGlass, RoundedCornerShape(0.dp))
                     .clickable { showLanguageDialog = true }
                     .padding(horizontal = 10.dp, vertical = 6.dp)
             ) {
@@ -111,7 +111,7 @@ fun HomeScreen(
         // 3. Audio Waveform Monitor
         Text(
             text = "SPEECH ENCODING WAVEFORM",
-            fontFamily = FontFamily.Monospace,
+            fontFamily = FontFamily.SansSerif,
             fontSize = 10.sp,
             color = TextDim,
             letterSpacing = 0.5.sp
@@ -148,7 +148,7 @@ fun HomeScreen(
             val lastMsg = recentMessages.first()
             Text(
                 text = "LAST RECEIVED TRANSMISSION",
-                fontFamily = FontFamily.Monospace,
+                fontFamily = FontFamily.SansSerif,
                 fontSize = 10.sp,
                 color = TextDim
             )
@@ -156,9 +156,9 @@ fun HomeScreen(
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clip(RoundedCornerShape(10.dp))
+                    .clip(RoundedCornerShape(0.dp))
                     .background(CardNavyGlass)
-                    .border(1.dp, BorderGlass, RoundedCornerShape(10.dp))
+                    .border(1.dp, BorderGlass, RoundedCornerShape(0.dp))
                     .padding(12.dp)
             ) {
                 Column {
@@ -168,14 +168,14 @@ fun HomeScreen(
                     ) {
                         Text(
                             text = lastMsg.senderName.uppercase(),
-                            fontFamily = FontFamily.Monospace,
+                            fontFamily = FontFamily.SansSerif,
                             fontSize = 11.sp,
                             fontWeight = FontWeight.Bold,
                             color = SignalCyanBright
                         )
                         Text(
                             text = lastMsg.status.name,
-                            fontFamily = FontFamily.Monospace,
+                            fontFamily = FontFamily.SansSerif,
                             fontSize = 10.sp,
                             color = NetworkGreen
                         )
@@ -199,7 +199,7 @@ fun HomeScreen(
             title = {
                 Text(
                     text = "SELECT LANGUAGE (10 INDIAN LANGUAGES)",
-                    fontFamily = FontFamily.Monospace,
+                    fontFamily = FontFamily.SansSerif,
                     fontSize = 13.sp,
                     color = SignalCyanBright
                 )

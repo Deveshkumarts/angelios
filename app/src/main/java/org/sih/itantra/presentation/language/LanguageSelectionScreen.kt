@@ -56,9 +56,9 @@ fun LanguageSelectionScreen(
         ) {
             Row(
                 modifier = Modifier
-                    .clip(RoundedCornerShape(20.dp))
+                    .clip(RoundedCornerShape(0.dp))
                     .background(CardNavyGlass)
-                    .border(1.dp, BorderCyanHighlight, RoundedCornerShape(20.dp))
+                    .border(1.dp, BorderCyanHighlight, RoundedCornerShape(0.dp))
                     .padding(horizontal = 12.dp, vertical = 5.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -71,7 +71,7 @@ fun LanguageSelectionScreen(
                 Spacer(modifier = Modifier.width(6.dp))
                 Text(
                     text = "OFFLINE MULTILINGUAL PIPELINE",
-                    fontFamily = FontFamily.Monospace,
+                    fontFamily = FontFamily.SansSerif,
                     fontSize = 10.sp,
                     fontWeight = FontWeight.Bold,
                     color = SignalCyanBright
@@ -120,12 +120,12 @@ fun LanguageSelectionScreen(
                         Box(
                             modifier = Modifier
                                 .weight(1f)
-                                .clip(RoundedCornerShape(12.dp))
+                                .clip(RoundedCornerShape(0.dp))
                                 .background(if (isSelected) CardNavy.copy(alpha = 0.95f) else CardNavyGlass)
                                 .border(
                                     width = if (isSelected) 1.5.dp else 1.dp,
                                     color = if (isSelected) SignalCyanBright else BorderGlass,
-                                    shape = RoundedCornerShape(12.dp)
+                                    shape = RoundedCornerShape(0.dp)
                                 )
                                 .clickable {
                                     chosenLanguage = lang
@@ -149,7 +149,7 @@ fun LanguageSelectionScreen(
                                     ) {
                                         Text(
                                             text = lang.code.uppercase(),
-                                            fontFamily = FontFamily.Monospace,
+                                            fontFamily = FontFamily.SansSerif,
                                             fontSize = 9.sp,
                                             fontWeight = FontWeight.Bold,
                                             color = if (isSelected) DeepSpaceNavy else TextWhite
@@ -232,11 +232,11 @@ fun LanguageSelectionScreen(
                     .fillMaxWidth()
                     .height(50.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = IsroBlueBright),
-                shape = RoundedCornerShape(10.dp)
+                shape = RoundedCornerShape(0.dp)
             ) {
                 Text(
                     text = "CONTINUE WITH ${chosenLanguage.displayName.uppercase()}",
-                    fontFamily = FontFamily.Monospace,
+                    fontFamily = FontFamily.SansSerif,
                     fontWeight = FontWeight.Bold,
                     fontSize = 12.sp,
                     letterSpacing = 1.sp,

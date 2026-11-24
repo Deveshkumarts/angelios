@@ -61,7 +61,7 @@ fun MessagesScreen(repository: CommunicationRepository) {
                 )
                 Text(
                     text = "KEYSTORE-ENCRYPTED LOCAL HISTORY",
-                    fontFamily = FontFamily.Monospace,
+                    fontFamily = FontFamily.SansSerif,
                     fontSize = 10.sp,
                     color = SignalCyanBright
                 )
@@ -69,7 +69,7 @@ fun MessagesScreen(repository: CommunicationRepository) {
 
             Text(
                 text = "${messages.size} PACKETS",
-                fontFamily = FontFamily.Monospace,
+                fontFamily = FontFamily.SansSerif,
                 fontSize = 11.sp,
                 fontWeight = FontWeight.Bold,
                 color = TextDim
@@ -80,7 +80,7 @@ fun MessagesScreen(repository: CommunicationRepository) {
 
         if (messages.isEmpty()) {
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Text("NO TRANSMISSIONS LOGGED", fontFamily = FontFamily.Monospace, color = TextDim, fontSize = 12.sp)
+                Text("NO TRANSMISSIONS LOGGED", fontFamily = FontFamily.SansSerif, color = TextDim, fontSize = 12.sp)
             }
         } else {
             LazyColumn(
@@ -117,9 +117,9 @@ private fun MessageCard(
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(10.dp))
+            .clip(RoundedCornerShape(0.dp))
             .background(CardNavyGlass)
-            .border(1.dp, if (message.priority == Priority.EMERGENCY) EmergencyRed else BorderGlass, RoundedCornerShape(10.dp))
+            .border(1.dp, if (message.priority == Priority.EMERGENCY) EmergencyRed else BorderGlass, RoundedCornerShape(0.dp))
             .padding(12.dp)
     ) {
         Column {
@@ -140,7 +140,7 @@ private fun MessageCard(
                     Spacer(modifier = Modifier.width(6.dp))
                     Text(
                         text = "• $timeStr",
-                        fontFamily = FontFamily.Monospace,
+                        fontFamily = FontFamily.SansSerif,
                         fontSize = 10.sp,
                         color = TextDim
                     )
@@ -148,14 +148,14 @@ private fun MessageCard(
 
                 Box(
                     modifier = Modifier
-                        .clip(RoundedCornerShape(4.dp))
+                        .clip(RoundedCornerShape(0.dp))
                         .background(priorityColor.copy(alpha = 0.15f))
-                        .border(1.dp, priorityColor.copy(alpha = 0.4f), RoundedCornerShape(4.dp))
+                        .border(1.dp, priorityColor.copy(alpha = 0.4f), RoundedCornerShape(0.dp))
                         .padding(horizontal = 6.dp, vertical = 2.dp)
                 ) {
                     Text(
                         text = message.priority.label,
-                        fontFamily = FontFamily.Monospace,
+                        fontFamily = FontFamily.SansSerif,
                         fontSize = 9.sp,
                         fontWeight = FontWeight.Bold,
                         color = priorityColor
@@ -194,7 +194,7 @@ private fun MessageCard(
                     Spacer(modifier = Modifier.width(4.dp))
                     Text(
                         text = "PLAY OFFLINE TTS",
-                        fontFamily = FontFamily.Monospace,
+                        fontFamily = FontFamily.SansSerif,
                         fontSize = 10.sp,
                         color = SignalCyanBright
                     )
@@ -206,7 +206,7 @@ private fun MessageCard(
                 ) {
                     Text(
                         text = if (isExpanded) "HIDE TELEMETRY" else "TECHNICAL DETAILS",
-                        fontFamily = FontFamily.Monospace,
+                        fontFamily = FontFamily.SansSerif,
                         fontSize = 10.sp,
                         color = TextDim
                     )
@@ -225,13 +225,13 @@ private fun MessageCard(
                     modifier = Modifier
                         .padding(top = 10.dp)
                         .fillMaxWidth()
-                        .clip(RoundedCornerShape(6.dp))
+                        .clip(RoundedCornerShape(0.dp))
                         .background(SurfaceNavy)
                         .padding(10.dp)
                 ) {
                     Text(
                         text = "JUDGE / DEVELOPER TELEMETRY BREAKDOWN",
-                        fontFamily = FontFamily.Monospace,
+                        fontFamily = FontFamily.SansSerif,
                         fontSize = 10.sp,
                         fontWeight = FontWeight.Bold,
                         color = SignalCyanBright
@@ -264,10 +264,10 @@ private fun TelemetryRow(label: String, value: String, isHighlight: Boolean = fa
             .padding(vertical = 1.dp),
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
-        Text(text = label, fontFamily = FontFamily.Monospace, fontSize = 10.sp, color = TextDim)
+        Text(text = label, fontFamily = FontFamily.SansSerif, fontSize = 10.sp, color = TextDim)
         Text(
             text = value,
-            fontFamily = FontFamily.Monospace,
+            fontFamily = FontFamily.SansSerif,
             fontSize = 10.sp,
             fontWeight = if (isHighlight) FontWeight.Bold else FontWeight.Normal,
             color = if (isHighlight) NetworkGreen else TextWhite

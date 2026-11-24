@@ -14,4 +14,7 @@
     <color name="text_white">#F8FAFC</color>
     <color name="text_secondary">#94A3B8</color>
     <color name="border_glass">#1E293B</color>
+    <color name="lab_paper">#FFF3F2EF</color>
+    <color name="lab_ink">#FF111111</color>
+    <color name="lab_orange">#FFFF4B1F</color>
 </resources>

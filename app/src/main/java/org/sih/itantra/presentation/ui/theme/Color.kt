@@ -3,58 +3,75 @@ package org.sih.itantra.presentation.ui.theme
 import androidx.compose.ui.graphics.Color
 
 // ==========================================
-// CYBERPUNK GLASSMORPHIC RED PALETTE
+// EDITORIAL "LAB" PALETTE
+// Off-white paper, black ink, one loud orange-red block colour.
 // ==========================================
 
-// Deep Void Obsidian Backgrounds
-val CyberVoidBlack = Color(0xFF060305)
-val CyberSurfaceDark = Color(0xFF0F060A)
-val CyberCardDark = Color(0xFF160910)
+val LabPaper = Color(0xFFF3F2EF)        // page background
+val LabPaperDeep = Color(0xFFE9E7E3)    // recessed areas, inactive fills
+val LabCard = Color(0xFFFFFFFF)         // framed panels
+val LabInk = Color(0xFF111111)          // primary text, frames, buttons
+val LabInkMuted = Color(0xFF55524D)     // secondary text
+val LabInkDim = Color(0xFF8E8A84)       // captions, disabled
+val LabHairline = Color(0x22111111)     // 13% ink: quiet panel frames
+val LabHairlineFaint = Color(0x12111111)
 
-// Frosted Crimson Glassmorphic Surfaces
-val CyberGlassSurface = Color(0xD918070E)      // 85% frosted crimson glass
-val CyberGlassCard = Color(0xCC200A14)         // 80% frosted glass
-val CyberGlassHighlight = Color(0x33FF003C)    // 20% neon red sheen
+val LabOrange = Color(0xFFFF4B1F)       // the signature block colour
+val LabOrangeDeep = Color(0xFFD93A0E)   // orange used as text on paper (better contrast)
+val LabOrangeDark = Color(0xFFA82C08)
+val LabOrangeTint = Color(0x1FFF4B1F)   // 12% wash
 
-// Cyberpunk Neon Red Accents
-val CyberNeonRed = Color(0xFFFF003C)           // Pure Laser Red
-val CyberNeonRedBright = Color(0xFFFF2E5E)     // Vibrant High-Power Red
-val CyberNeonRedGlow = Color(0x40FF003C)       // 25% Soft Red Bloom
-val CyberNeonBloodOrange = Color(0xFFFF3D00)   // Tactical Orange-Red
-val CyberCrimsonDark = Color(0xFF8B0021)       // Deep Tactical Crimson
+val LabGreen = Color(0xFF12804A)        // link up / delivered
+val LabAmber = Color(0xFFC77F00)        // degraded / warning
 
-// Status & Tactical HUD Accents
-val CyberMatrixGreen = Color(0xFF00FF9D)       // Neon Matrix Cyan-Green for active links
-val CyberMatrixGreenGlow = Color(0x3300FF9D)
-val CyberWarningAmber = Color(0xFFFFB800)      // Sci-Fi Warning Gold
-val CyberWarningGlow = Color(0x33FFB800)
-val CyberLaserCyan = Color(0xFF00F0FF)         // Secondary HUD Cyan Accent
-val CyberLaserCyanGlow = Color(0x3300F0FF)
+// ------------------------------------------
+// Legacy token names used across the screens, re-pointed at the editorial palette.
+// "Text*" tokens are now ink on paper; "*Red*" tokens are the orange accent.
+// ------------------------------------------
 
-// Typography
-val CyberTextWhite = Color(0xFFFBFBFB)
-val CyberTextGlow = Color(0xFFFF758F)
-val CyberTextMuted = Color(0xFFC4A5B1)
-val CyberTextDim = Color(0xFF6E535E)
+val CyberVoidBlack = LabPaper
+val CyberSurfaceDark = LabPaperDeep
+val CyberCardDark = LabCard
 
-// Glass Borders & Neon Edges
-val CyberBorderRed = Color(0x59FF003C)         // 35% Neon Red Border
-val CyberBorderRedBright = Color(0xB3FF003C)   // 70% Active Laser Border
-val CyberBorderSubtle = Color(0x26FF003C)      // 15% Inactive Rim
+val CyberGlassSurface = LabCard
+val CyberGlassCard = LabCard
+val CyberGlassHighlight = LabOrangeTint
 
-// Tactical Compatibility Aliases (re-skinned to Cyberpunk Red)
+val CyberNeonRed = LabOrange
+val CyberNeonRedBright = LabOrangeDeep
+val CyberNeonRedGlow = LabOrangeTint
+val CyberNeonBloodOrange = LabOrange
+val CyberCrimsonDark = LabOrangeDark
+
+val CyberMatrixGreen = LabGreen
+val CyberMatrixGreenGlow = Color(0x1F12804A)
+val CyberWarningAmber = LabAmber
+val CyberWarningGlow = Color(0x1FC77F00)
+val CyberLaserCyan = LabInk
+val CyberLaserCyanGlow = LabHairlineFaint
+
+val CyberTextWhite = LabInk
+val CyberTextGlow = LabOrange
+val CyberTextMuted = LabInkMuted
+val CyberTextDim = LabInkDim
+
+val CyberBorderRed = LabHairline
+val CyberBorderRedBright = LabInk
+val CyberBorderSubtle = LabHairlineFaint
+
 val DeepSpaceNavy = CyberVoidBlack
 val SurfaceNavy = CyberSurfaceDark
 val CardNavy = CyberCardDark
 val CardNavyGlass = CyberGlassSurface
 
-val IsroBlue = CyberNeonRed
-val IsroBlueBright = CyberNeonRedBright
-val IsroBlueGlow = CyberNeonRedGlow
+val IsroBlue = LabOrange           // primary-action fill (ink text on top)
+val IsroBlueBright = LabOrange
+val IsroBlueGlow = LabOrangeTint
 
-val SignalCyan = CyberNeonRed
-val SignalCyanBright = CyberNeonRedBright
-val SignalCyanGlow = CyberNeonRedGlow
+// The old secondary "cyan" role becomes plain ink so orange stays reserved for emphasis.
+val SignalCyan = LabInk
+val SignalCyanBright = LabInk
+val SignalCyanGlow = LabHairlineFaint
 
 val NetworkGreen = CyberMatrixGreen
 val NetworkGreenGlow = CyberMatrixGreenGlow
@@ -62,9 +79,9 @@ val NetworkGreenGlow = CyberMatrixGreenGlow
 val WarningAmber = CyberWarningAmber
 val WarningAmberGlow = CyberWarningGlow
 
-val EmergencyRed = CyberNeonRed
-val EmergencyRedBright = CyberNeonRedBright
-val EmergencyRedGlow = CyberNeonRedGlow
+val EmergencyRed = LabOrange
+val EmergencyRedBright = LabOrangeDeep
+val EmergencyRedGlow = LabOrangeTint
 
 val TextWhite = CyberTextWhite
 val TextMuted = CyberTextMuted

@@ -38,6 +38,7 @@ import org.sih.itantra.R
 import org.sih.itantra.domain.model.Language
 import org.sih.itantra.domain.repository.CommunicationRepository
 import org.sih.itantra.presentation.ui.theme.*
+import org.sih.itantra.presentation.ui.components.*
 
 /**
  * 1st Page: Operator Registration & Hardware Provisioning.
@@ -86,15 +87,7 @@ fun UserRegistrationScreen(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(
-                Brush.verticalGradient(
-                    colors = listOf(
-                        CyberVoidBlack,
-                        Color(0xFF14050B),
-                        CyberVoidBlack
-                    )
-                )
-            )
+            .background(LabPaper)
     ) {
         Column(
             modifier = Modifier
@@ -105,54 +98,68 @@ fun UserRegistrationScreen(
         ) {
             Spacer(modifier = Modifier.height(12.dp))
 
-            // 1. AKHET Official Logo with Cyberpunk Glow Halo
-            Box(
-                modifier = Modifier
-                    .size(100.dp)
-                    .shadow(
-                        elevation = 20.dp,
-                        shape = CircleShape,
-                        spotColor = CyberNeonRed.copy(alpha = glowAlpha),
-                        ambientColor = CyberNeonRed
-                    )
-                    .clip(CircleShape)
-                    .background(CyberGlassSurface)
-                    .border(2.dp, CyberNeonRed.copy(alpha = glowAlpha), CircleShape)
-                    .padding(8.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Image(
-                    painter = painterResource(id = R.drawable.ic_akhet_logo),
-                    contentDescription = "AKHET Logo",
-                    modifier = Modifier.fillMaxSize()
-                )
+            // 1-2. Editorial hero: wordmark, poster captions and the orange block
+            Column(modifier = Modifier.fillMaxWidth()) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    LabLabel("001", color = LabOrangeDeep)
+                    Spacer(Modifier.width(8.dp))
+                    Box(Modifier.width(18.dp).height(1.dp).background(LabInk))
+                    Spacer(Modifier.width(8.dp))
+                    LabLabel("Operator registration")
+                }
+                Spacer(Modifier.height(18.dp))
+                Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.Bottom) {
+                    LabWordmark("angelios", fontSize = 60.sp, dotColor = LabOrange, modifier = Modifier.weight(1f))
+                }
+                Spacer(Modifier.height(10.dp))
+                Row(modifier = Modifier.fillMaxWidth()) {
+                    Column(Modifier.weight(1f)) {
+                        LabLabel("Offline mesh", color = LabInkMuted)
+                        LabLabel("walkie-talkie", color = LabInkMuted)
+                    }
+                    Column(Modifier.weight(1f)) {
+                        LabLabel("Wi-Fi · BLE · LoRa", color = LabInkMuted)
+                        LabLabel("10 Indian languages", color = LabInkMuted)
+                    }
+                    Column(horizontalAlignment = Alignment.End) {
+                        LabLabel("SIH", color = LabInkMuted)
+                        LabLabel("PS 26173", color = LabInkMuted)
+                    }
+                }
+                Spacer(Modifier.height(14.dp))
+                Row(Modifier.fillMaxWidth().height(56.dp)) {
+                    Box(
+                        Modifier
+                            .width(56.dp)
+                            .fillMaxHeight()
+                            .background(LabInk),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Image(
+                            painter = painterResource(id = R.drawable.ic_akhet_logo),
+                            contentDescription = "AKHET Logo",
+                            modifier = Modifier.size(34.dp)
+                        )
+                    }
+                    Box(
+                        Modifier
+                            .weight(1f)
+                            .fillMaxHeight()
+                            .background(LabOrange)
+                            .padding(horizontal = 14.dp),
+                        contentAlignment = Alignment.CenterStart
+                    ) {
+                        Text(
+                            text = "Turning signals into survival.",
+                            fontFamily = LabFont,
+                            fontWeight = FontWeight.Black,
+                            fontSize = 17.sp,
+                            letterSpacing = (-0.4).sp,
+                            color = LabInk
+                        )
+                    }
+                }
             }
-
-            Spacer(modifier = Modifier.height(14.dp))
-
-            // 2. Tactical Headings
-            Text(
-                text = "ANGELIOS // TACTICAL NODE",
-                fontFamily = FontFamily.Monospace,
-                fontWeight = FontWeight.ExtraBold,
-                fontSize = 20.sp,
-                letterSpacing = 1.5.sp,
-                color = CyberNeonRedBright
-            )
-            Text(
-                text = "ISRO SMART INDIA HACKATHON • ID 26173",
-                fontFamily = FontFamily.Monospace,
-                fontSize = 10.sp,
-                fontWeight = FontWeight.Medium,
-                letterSpacing = 0.5.sp,
-                color = CyberTextMuted
-            )
-            Text(
-                text = "Turning Signals into Survival • 100% Offline Mesh",
-                fontFamily = FontFamily.SansSerif,
-                fontSize = 11.sp,
-                color = CyberTextDim
-            )
 
             Spacer(modifier = Modifier.height(24.dp))
 
@@ -160,9 +167,9 @@ fun UserRegistrationScreen(
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clip(RoundedCornerShape(16.dp))
+                    .clip(RoundedCornerShape(0.dp))
                     .background(CyberGlassSurface)
-                    .border(1.dp, CyberBorderRed, RoundedCornerShape(16.dp))
+                    .border(1.dp, CyberBorderRed, RoundedCornerShape(0.dp))
                     .padding(20.dp)
             ) {
                 Column(verticalArrangement = Arrangement.spacedBy(18.dp)) {
@@ -179,7 +186,7 @@ fun UserRegistrationScreen(
                             Spacer(modifier = Modifier.width(6.dp))
                             Text(
                                 text = "OPERATOR NAME",
-                                fontFamily = FontFamily.Monospace,
+                                fontFamily = FontFamily.SansSerif,
                                 fontSize = 11.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = CyberNeonRedBright,
@@ -197,7 +204,7 @@ fun UserRegistrationScreen(
                                 Text(
                                     text = "Enter your full name or call-sign",
                                     color = CyberTextDim,
-                                    fontFamily = FontFamily.Monospace,
+                                    fontFamily = FontFamily.SansSerif,
                                     fontSize = 13.sp
                                 )
                             },
@@ -212,7 +219,7 @@ fun UserRegistrationScreen(
                                 focusedContainerColor = CyberVoidBlack.copy(alpha = 0.6f),
                                 unfocusedContainerColor = CyberVoidBlack.copy(alpha = 0.4f)
                             ),
-                            shape = RoundedCornerShape(10.dp),
+                            shape = RoundedCornerShape(0.dp),
                             modifier = Modifier.fillMaxWidth()
                         )
                     }
@@ -221,7 +228,7 @@ fun UserRegistrationScreen(
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Text(
                             text = "GENDER IDENTITY",
-                            fontFamily = FontFamily.Monospace,
+                            fontFamily = FontFamily.SansSerif,
                             fontSize = 11.sp,
                             fontWeight = FontWeight.Bold,
                             color = CyberNeonRedBright,
@@ -247,9 +254,9 @@ fun UserRegistrationScreen(
                                     modifier = Modifier
                                         .weight(1f)
                                         .height(42.dp)
-                                        .clip(RoundedCornerShape(8.dp))
+                                        .clip(RoundedCornerShape(0.dp))
                                         .background(bgColor)
-                                        .border(1.dp, borderColor, RoundedCornerShape(8.dp))
+                                        .border(1.dp, borderColor, RoundedCornerShape(0.dp))
                                         .clickable {
                                             selectedGender = genderOption
                                             focusManager.clearFocus()
@@ -258,7 +265,7 @@ fun UserRegistrationScreen(
                                 ) {
                                     Text(
                                         text = genderOption.uppercase(),
-                                        fontFamily = FontFamily.Monospace,
+                                        fontFamily = FontFamily.SansSerif,
                                         fontSize = 12.sp,
                                         fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
                                         color = if (isSelected) CyberTextWhite else CyberTextMuted
@@ -285,7 +292,7 @@ fun UserRegistrationScreen(
                                 Spacer(modifier = Modifier.width(6.dp))
                                 Text(
                                     text = "PREFERRED LANGUAGE",
-                                    fontFamily = FontFamily.Monospace,
+                                    fontFamily = FontFamily.SansSerif,
                                     fontSize = 11.sp,
                                     fontWeight = FontWeight.Bold,
                                     color = CyberNeonRedBright,
@@ -294,7 +301,7 @@ fun UserRegistrationScreen(
                             }
                             Text(
                                 text = "10 ISRO LANGS",
-                                fontFamily = FontFamily.Monospace,
+                                fontFamily = FontFamily.SansSerif,
                                 fontSize = 9.sp,
                                 color = CyberMatrixGreen,
                                 fontWeight = FontWeight.Bold
@@ -329,9 +336,9 @@ fun UserRegistrationScreen(
                                         Box(
                                             modifier = Modifier
                                                 .weight(1f)
-                                                .clip(RoundedCornerShape(8.dp))
+                                                .clip(RoundedCornerShape(0.dp))
                                                 .background(chipBg)
-                                                .border(1.dp, chipBorder, RoundedCornerShape(8.dp))
+                                                .border(1.dp, chipBorder, RoundedCornerShape(0.dp))
                                                 .clickable {
                                                     selectedLang = lang
                                                     focusManager.clearFocus()
@@ -353,7 +360,7 @@ fun UserRegistrationScreen(
                                                     )
                                                     Text(
                                                         text = lang.displayName.uppercase(),
-                                                        fontFamily = FontFamily.Monospace,
+                                                        fontFamily = FontFamily.SansSerif,
                                                         fontSize = 9.sp,
                                                         color = if (isSelected) CyberNeonRedBright else CyberTextDim
                                                     )
@@ -389,7 +396,7 @@ fun UserRegistrationScreen(
                 Spacer(modifier = Modifier.height(10.dp))
                 Text(
                     text = errorMessage ?: "",
-                    fontFamily = FontFamily.Monospace,
+                    fontFamily = FontFamily.SansSerif,
                     fontSize = 11.sp,
                     color = CyberNeonRedBright,
                     fontWeight = FontWeight.Bold
@@ -418,11 +425,10 @@ fun UserRegistrationScreen(
                 },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(52.dp)
-                    .shadow(12.dp, RoundedCornerShape(10.dp), spotColor = CyberNeonRed),
-                shape = RoundedCornerShape(10.dp),
+                    .height(56.dp),
+                shape = RoundedCornerShape(0.dp),
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = CyberNeonRed
+                    containerColor = LabInk
                 )
             ) {
                 Row(
@@ -430,18 +436,18 @@ fun UserRegistrationScreen(
                     horizontalArrangement = Arrangement.Center
                 ) {
                     Text(
-                        text = "INITIALIZE TACTICAL NODE",
-                        fontFamily = FontFamily.Monospace,
+                        text = "JOIN THE MESH",
+                        fontFamily = FontFamily.SansSerif,
                         fontSize = 13.sp,
                         fontWeight = FontWeight.Bold,
                         letterSpacing = 1.sp,
-                        color = CyberTextWhite
+                        color = LabPaper
                     )
                     Spacer(modifier = Modifier.width(10.dp))
                     Icon(
                         imageVector = Icons.AutoMirrored.Filled.ArrowForward,
                         contentDescription = "Enter",
-                        tint = CyberTextWhite,
+                        tint = LabOrange,
                         modifier = Modifier.size(18.dp)
                     )
                 }
@@ -452,7 +458,7 @@ fun UserRegistrationScreen(
             // Hardware security notice
             Text(
                 text = "MIL-SPEC OFFLINE ARCHITECTURE • ZERO TELEMETRY TRANSMITTED TO CLOUD",
-                fontFamily = FontFamily.Monospace,
+                fontFamily = FontFamily.SansSerif,
                 fontSize = 9.sp,
                 color = CyberTextDim,
                 textAlign = TextAlign.Center

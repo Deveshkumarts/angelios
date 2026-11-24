@@ -37,9 +37,9 @@ fun TelemetryCard(
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(12.dp))
+            .clip(RoundedCornerShape(0.dp))
             .background(CardNavyGlass)
-            .border(1.dp, BorderGlass, RoundedCornerShape(12.dp))
+            .border(1.dp, BorderGlass, RoundedCornerShape(0.dp))
             .padding(14.dp)
     ) {
         Column {
@@ -53,12 +53,12 @@ fun TelemetryCard(
                     Box(
                         modifier = Modifier
                             .size(8.dp)
-                            .background(qualityColor, RoundedCornerShape(4.dp))
+                            .background(qualityColor, RoundedCornerShape(0.dp))
                     )
                     Spacer(modifier = Modifier.width(6.dp))
                     Text(
                         text = metrics.activeTransport.label.uppercase(),
-                        fontFamily = FontFamily.Monospace,
+                        fontFamily = FontFamily.SansSerif,
                         fontSize = 11.sp,
                         fontWeight = FontWeight.Bold,
                         color = TextWhite
@@ -67,14 +67,14 @@ fun TelemetryCard(
 
                 Box(
                     modifier = Modifier
-                        .clip(RoundedCornerShape(4.dp))
+                        .clip(RoundedCornerShape(0.dp))
                         .background(qualityColor.copy(alpha = 0.15f))
-                        .border(1.dp, qualityColor.copy(alpha = 0.4f), RoundedCornerShape(4.dp))
+                        .border(1.dp, qualityColor.copy(alpha = 0.4f), RoundedCornerShape(0.dp))
                         .padding(horizontal = 8.dp, vertical = 2.dp)
                 ) {
                     Text(
                         text = "${metrics.linkQuality.label} LINK (${(metrics.linkQualityScore * 100).toInt()}%)",
-                        fontFamily = FontFamily.Monospace,
+                        fontFamily = FontFamily.SansSerif,
                         fontSize = 10.sp,
                         fontWeight = FontWeight.Bold,
                         color = qualityColor
@@ -101,7 +101,7 @@ fun TelemetryCard(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clip(RoundedCornerShape(6.dp))
+                    .clip(RoundedCornerShape(0.dp))
                     .background(SurfaceNavy)
                     .padding(horizontal = 8.dp, vertical = 5.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -109,13 +109,13 @@ fun TelemetryCard(
             ) {
                 Text(
                     text = "ADAPTIVE STRATEGY:",
-                    fontFamily = FontFamily.Monospace,
+                    fontFamily = FontFamily.SansSerif,
                     fontSize = 10.sp,
                     color = TextMuted
                 )
                 Text(
                     text = metrics.linkQuality.targetStrategy,
-                    fontFamily = FontFamily.Monospace,
+                    fontFamily = FontFamily.SansSerif,
                     fontSize = 10.sp,
                     fontWeight = FontWeight.Bold,
                     color = SignalCyanBright
@@ -130,13 +130,13 @@ private fun MetricItem(label: String, value: String, valueColor: Color) {
     Column {
         Text(
             text = label,
-            fontFamily = FontFamily.Monospace,
+            fontFamily = FontFamily.SansSerif,
             fontSize = 9.sp,
             color = TextDim
         )
         Text(
             text = value,
-            fontFamily = FontFamily.Monospace,
+            fontFamily = FontFamily.SansSerif,
             fontSize = 13.sp,
             fontWeight = FontWeight.Bold,
             color = valueColor

@@ -32,6 +32,7 @@ import org.sih.itantra.domain.repository.CommunicationRepository
 import org.sih.itantra.presentation.ui.components.EmergencySlideButton
 import org.sih.itantra.presentation.ui.components.StaggeredEntrance
 import org.sih.itantra.presentation.ui.theme.*
+import org.sih.itantra.presentation.ui.components.*
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -56,55 +57,34 @@ fun EmergencyScreen(repository: CommunicationRepository) {
             .verticalScroll(rememberScrollState())
             .padding(16.dp)
     ) {
-        // 1. Tactical Emergency Protocol Header
+        // 1. Editorial header
         StaggeredEntrance(index = 0) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column {
-                    Text(
-                        text = "EMERGENCY PROTOCOL",
-                        fontFamily = FontFamily.SansSerif,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 18.sp,
-                        color = CyberNeonRedBright
-                    )
-                    Text(
-                        text = "HIGH-PRIORITY SOS • DISASTER & TRIAGE OVERRIDE",
-                        fontFamily = FontFamily.Monospace,
-                        fontSize = 10.sp,
-                        color = CyberTextMuted
-                    )
-                }
-                Icon(
-                    imageVector = Icons.Default.Warning,
-                    contentDescription = "SOS",
-                    tint = CyberNeonRedBright,
-                    modifier = Modifier.size(28.dp)
-                )
-            }
+            LabScreenHeader(
+                index = 2,
+                total = 4,
+                section = "Emergency protocol",
+                title = "sos",
+                titleSize = 64.sp,
+                captions = listOf("Priority override", "All nodes", "GPS attached"),
+                status = if (isSosActive) "Live · $deliveredCount acknowledged" else "Armed · $nearbyCount nodes in range",
+                statusIcon = Icons.Default.Warning
+            )
         }
 
-        Spacer(modifier = Modifier.height(10.dp))
+        Spacer(modifier = Modifier.height(12.dp))
 
-        // 2. Advisory Banner
+        // 2. Advisory
         StaggeredEntrance(index = 1) {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(8.dp))
-                    .background(CyberNeonRed.copy(alpha = 0.15f))
-                    .border(1.dp, CyberNeonRed.copy(alpha = 0.5f), RoundedCornerShape(8.dp))
-                    .padding(10.dp)
-            ) {
+            LabPanel {
+                LabLabel("Life-safety broadcast", color = LabOrangeDeep)
+                Spacer(Modifier.height(6.dp))
                 Text(
-                    text = "[CRITICAL] LIFE-SAFETY BROADCAST PROTOCOL: Triggers emergency sirens and strobe on all devices connected to the Wi-Fi network. Announces: \"Emergency! ${repository.userProfile.value.username} is in emergency!\" to all nearby units regardless of private communication channel settings.",
-                    fontFamily = FontFamily.SansSerif,
-                    fontSize = 11.sp,
-                    color = CyberTextWhite,
-                    lineHeight = 15.sp
+                    text = "Sounds the siren and strobe on every reachable device and announces " +
+                        "\"${repository.userProfile.value.username} needs help\" — even to peers outside your private link.",
+                    fontFamily = LabFont,
+                    fontSize = 13.sp,
+                    lineHeight = 18.sp,
+                    color = LabInk
                 )
             }
         }
@@ -116,9 +96,9 @@ fun EmergencyScreen(repository: CommunicationRepository) {
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clip(RoundedCornerShape(12.dp))
+                    .clip(RoundedCornerShape(0.dp))
                     .background(if (isSosActive) CyberNeonRed.copy(alpha = 0.2f) else CyberGlassSurface)
-                    .border(2.dp, if (isSosActive) CyberNeonRedBright else CyberBorderRed, RoundedCornerShape(12.dp))
+                    .border(2.dp, if (isSosActive) CyberNeonRedBright else CyberBorderRed, RoundedCornerShape(0.dp))
                     .padding(16.dp)
             ) {
                 Column {
@@ -128,14 +108,14 @@ fun EmergencyScreen(repository: CommunicationRepository) {
                     ) {
                         Text(
                             text = if (isSosActive) "SOS ACTIVE (TRANSMITTING)" else "SOS STANDBY (READY)",
-                            fontFamily = FontFamily.Monospace,
+                            fontFamily = FontFamily.SansSerif,
                             fontSize = 12.sp,
                             fontWeight = FontWeight.Bold,
                             color = if (isSosActive) CyberNeonRedBright else CyberMatrixGreen
                         )
                         Text(
                             text = "PRIORITY: CRITICAL",
-                            fontFamily = FontFamily.Monospace,
+                            fontFamily = FontFamily.SansSerif,
                             fontSize = 11.sp,
                             fontWeight = FontWeight.Bold,
                             color = CyberNeonRedBright
@@ -149,20 +129,20 @@ fun EmergencyScreen(repository: CommunicationRepository) {
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
                         Column(modifier = Modifier.weight(1f)) {
-                            Text("TRANSMISSION", fontFamily = FontFamily.Monospace, fontSize = 9.sp, color = CyberTextDim)
-                            Text("MULTI-HOP", fontFamily = FontFamily.Monospace, fontSize = 12.sp, fontWeight = FontWeight.Bold, color = CyberTextWhite)
+                            Text("TRANSMISSION", fontFamily = FontFamily.SansSerif, fontSize = 9.sp, color = CyberTextDim)
+                            Text("MULTI-HOP", fontFamily = FontFamily.SansSerif, fontSize = 12.sp, fontWeight = FontWeight.Bold, color = CyberTextWhite)
                         }
                         Column(modifier = Modifier.weight(1f)) {
-                            Text("STATUS", fontFamily = FontFamily.Monospace, fontSize = 9.sp, color = CyberTextDim)
-                            Text(if (isSosActive) "BROADCASTING" else "IDLE", fontFamily = FontFamily.Monospace, fontSize = 12.sp, fontWeight = FontWeight.Bold, color = if (isSosActive) CyberNeonRedBright else CyberTextMuted)
+                            Text("STATUS", fontFamily = FontFamily.SansSerif, fontSize = 9.sp, color = CyberTextDim)
+                            Text(if (isSosActive) "BROADCASTING" else "IDLE", fontFamily = FontFamily.SansSerif, fontSize = 12.sp, fontWeight = FontWeight.Bold, color = if (isSosActive) CyberNeonRedBright else CyberTextMuted)
                         }
                         Column(modifier = Modifier.weight(1f)) {
-                            Text("NEARBY DEVICES", fontFamily = FontFamily.Monospace, fontSize = 9.sp, color = CyberTextDim)
-                            Text("$nearbyCount", fontFamily = FontFamily.Monospace, fontSize = 12.sp, fontWeight = FontWeight.Bold, color = CyberTextWhite)
+                            Text("NEARBY DEVICES", fontFamily = FontFamily.SansSerif, fontSize = 9.sp, color = CyberTextDim)
+                            Text("$nearbyCount", fontFamily = FontFamily.SansSerif, fontSize = 12.sp, fontWeight = FontWeight.Bold, color = CyberTextWhite)
                         }
                         Column(modifier = Modifier.weight(1f)) {
-                            Text("DELIVERED", fontFamily = FontFamily.Monospace, fontSize = 9.sp, color = CyberTextDim)
-                            Text("$deliveredCount", fontFamily = FontFamily.Monospace, fontSize = 12.sp, fontWeight = FontWeight.Bold, color = if (deliveredCount > 0) CyberMatrixGreen else CyberTextDim)
+                            Text("DELIVERED", fontFamily = FontFamily.SansSerif, fontSize = 9.sp, color = CyberTextDim)
+                            Text("$deliveredCount", fontFamily = FontFamily.SansSerif, fontSize = 12.sp, fontWeight = FontWeight.Bold, color = if (deliveredCount > 0) CyberMatrixGreen else CyberTextDim)
                         }
                     }
                 }
@@ -201,7 +181,7 @@ fun EmergencyScreen(repository: CommunicationRepository) {
             Column {
                 Text(
                     text = "TACTICAL EMERGENCY TRIAGE PROTOCOL",
-                    fontFamily = FontFamily.Monospace,
+                    fontFamily = FontFamily.SansSerif,
                     fontSize = 10.sp,
                     color = CyberNeonRedBright,
                     fontWeight = FontWeight.Bold
@@ -214,17 +194,17 @@ fun EmergencyScreen(repository: CommunicationRepository) {
                         onClick = {
                             repository.triggerEmergencySos("EMERGENCY: Medical assistance required immediately, casualties reported.")
                         },
-                        shape = RoundedCornerShape(8.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = CyberNeonRed.copy(alpha = 0.2f)),
+                        shape = RoundedCornerShape(0.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = LabCard),
                         modifier = Modifier
                             .fillMaxWidth()
-                            .border(1.dp, CyberNeonRed, RoundedCornerShape(8.dp))
+                            .border(1.dp, CyberNeonRed, RoundedCornerShape(0.dp))
                     ) {
                         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
                             Icon(Icons.Default.Warning, contentDescription = null, tint = CyberNeonRedBright, modifier = Modifier.size(18.dp))
                             Spacer(modifier = Modifier.width(8.dp))
                             Column {
-                                Text("🚨 MEDICAL CASUALTY SOS", fontFamily = FontFamily.Monospace, fontSize = 11.sp, fontWeight = FontWeight.Bold, color = CyberTextWhite)
+                                Text("🚨 MEDICAL CASUALTY SOS", fontFamily = FontFamily.SansSerif, fontSize = 11.sp, fontWeight = FontWeight.Bold, color = CyberTextWhite)
                                 Text("Requests immediate doctor & medevac", fontFamily = FontFamily.SansSerif, fontSize = 10.sp, color = CyberTextMuted)
                             }
                         }
@@ -235,17 +215,17 @@ fun EmergencyScreen(repository: CommunicationRepository) {
                         onClick = {
                             repository.triggerEmergencySos("EMERGENCY: Severe hazard and flood water rising, immediate rescue needed.")
                         },
-                        shape = RoundedCornerShape(8.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = CyberNeonRed.copy(alpha = 0.2f)),
+                        shape = RoundedCornerShape(0.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = LabCard),
                         modifier = Modifier
                             .fillMaxWidth()
-                            .border(1.dp, CyberNeonRed, RoundedCornerShape(8.dp))
+                            .border(1.dp, CyberNeonRed, RoundedCornerShape(0.dp))
                     ) {
                         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
                             Icon(Icons.Default.Warning, contentDescription = null, tint = CyberNeonRedBright, modifier = Modifier.size(18.dp))
                             Spacer(modifier = Modifier.width(8.dp))
                             Column {
-                                Text("🌊 HAZARD & FLOOD RESCUE SOS", fontFamily = FontFamily.Monospace, fontSize = 11.sp, fontWeight = FontWeight.Bold, color = CyberTextWhite)
+                                Text("🌊 HAZARD & FLOOD RESCUE SOS", fontFamily = FontFamily.SansSerif, fontSize = 11.sp, fontWeight = FontWeight.Bold, color = CyberTextWhite)
                                 Text("Requests immediate disaster rescue squad", fontFamily = FontFamily.SansSerif, fontSize = 10.sp, color = CyberTextMuted)
                             }
                         }
@@ -261,7 +241,7 @@ fun EmergencyScreen(repository: CommunicationRepository) {
             Column {
                 Text(
                     text = "LOCAL EMERGENCY EVENT LOGS",
-                    fontFamily = FontFamily.Monospace,
+                    fontFamily = FontFamily.SansSerif,
                     fontSize = 10.sp,
                     color = CyberTextDim
                 )
@@ -272,13 +252,13 @@ fun EmergencyScreen(repository: CommunicationRepository) {
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .clip(RoundedCornerShape(8.dp))
+                            .clip(RoundedCornerShape(0.dp))
                             .background(CyberGlassSurface)
-                            .border(1.dp, CyberBorderRed, RoundedCornerShape(8.dp))
+                            .border(1.dp, CyberBorderRed, RoundedCornerShape(0.dp))
                             .padding(14.dp),
                         contentAlignment = Alignment.Center
                     ) {
-                        Text("NO RECENT EMERGENCY EVENTS", fontFamily = FontFamily.Monospace, fontSize = 11.sp, color = CyberTextDim)
+                        Text("NO RECENT EMERGENCY EVENTS", fontFamily = FontFamily.SansSerif, fontSize = 11.sp, color = CyberTextDim)
                     }
                 } else {
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -287,9 +267,9 @@ fun EmergencyScreen(repository: CommunicationRepository) {
                             Box(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .clip(RoundedCornerShape(8.dp))
+                                    .clip(RoundedCornerShape(0.dp))
                                     .background(CyberGlassSurface)
-                                    .border(1.dp, CyberBorderRed, RoundedCornerShape(8.dp))
+                                    .border(1.dp, CyberBorderRed, RoundedCornerShape(0.dp))
                                     .padding(10.dp)
                             ) {
                                 Row(
@@ -300,7 +280,7 @@ fun EmergencyScreen(repository: CommunicationRepository) {
                                     Column {
                                         Text(
                                             text = "SOS BEACON BROADCAST",
-                                            fontFamily = FontFamily.Monospace,
+                                            fontFamily = FontFamily.SansSerif,
                                             fontSize = 11.sp,
                                             fontWeight = FontWeight.Bold,
                                             color = CyberNeonRedBright
@@ -308,14 +288,14 @@ fun EmergencyScreen(repository: CommunicationRepository) {
                                         Text(
                                             text = "Source: ${log.triggerSource} • ACKed by ${log.deliveredCount}/${log.nearbyDevices} nodes" +
                                                 (if (log.latitude != null && log.longitude != null) String.format(java.util.Locale.ROOT, "\nGPS %.5f, %.5f", log.latitude, log.longitude) else "\nGPS: no fix"),
-                                            fontFamily = FontFamily.Monospace,
+                                            fontFamily = FontFamily.SansSerif,
                                             fontSize = 10.sp,
                                             color = CyberTextMuted
                                         )
                                     }
                                     Text(
                                         text = timeStr,
-                                        fontFamily = FontFamily.Monospace,
+                                        fontFamily = FontFamily.SansSerif,
                                         fontSize = 10.sp,
                                         color = CyberTextDim
                                     )
@@ -350,9 +330,9 @@ private fun RowScope.HardwarePill(icon: androidx.compose.ui.graphics.vector.Imag
     Box(
         modifier = Modifier
             .weight(1f)
-            .clip(RoundedCornerShape(8.dp))
+            .clip(RoundedCornerShape(0.dp))
             .background(pillBg)
-            .border(1.dp, pillBorder, RoundedCornerShape(8.dp))
+            .border(1.dp, pillBorder, RoundedCornerShape(0.dp))
             .padding(vertical = 8.dp),
         contentAlignment = Alignment.Center
     ) {
@@ -366,7 +346,7 @@ private fun RowScope.HardwarePill(icon: androidx.compose.ui.graphics.vector.Imag
             Spacer(modifier = Modifier.width(4.dp))
             Text(
                 text = label,
-                fontFamily = FontFamily.Monospace,
+                fontFamily = FontFamily.SansSerif,
                 fontSize = 10.sp,
                 fontWeight = FontWeight.Bold,
                 color = pillTint

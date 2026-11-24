@@ -198,7 +198,7 @@ fun RadarMeshSweep(
 
                 // Node Center Dot
                 drawCircle(
-                    color = if (isSelected) Color.White else nodeColor,
+                    color = if (isSelected) LabInk else nodeColor,
                     radius = if (isSelected) 6.dp.toPx() else 4.5.dp.toPx(),
                     center = nodePos
                 )

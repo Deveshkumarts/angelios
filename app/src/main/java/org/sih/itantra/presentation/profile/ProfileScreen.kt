@@ -34,6 +34,7 @@ import org.sih.itantra.domain.repository.CommunicationRepository
 import org.sih.itantra.presentation.ui.components.PulsingThreeDotIndicator
 import org.sih.itantra.presentation.ui.components.StaggeredEntrance
 import org.sih.itantra.presentation.ui.theme.*
+import org.sih.itantra.presentation.ui.components.*
 
 /**
  * 4. User Profile Screen.
@@ -197,7 +198,7 @@ fun ProfileScreen(repository: CommunicationRepository) {
                     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                         Text(
                             text = "GENDER IDENTITY",
-                            fontFamily = FontFamily.Monospace,
+                            fontFamily = FontFamily.SansSerif,
                             fontSize = 10.sp,
                             fontWeight = FontWeight.Bold,
                             color = SignalCyanBright
@@ -211,16 +212,16 @@ fun ProfileScreen(repository: CommunicationRepository) {
                                 Box(
                                     modifier = Modifier
                                         .weight(1f)
-                                        .clip(RoundedCornerShape(6.dp))
+                                        .clip(RoundedCornerShape(0.dp))
                                         .background(if (isSel) EmergencyRed else CardNavy)
-                                        .border(1.dp, if (isSel) EmergencyRedBright else BorderGlass, RoundedCornerShape(6.dp))
+                                        .border(1.dp, if (isSel) EmergencyRedBright else BorderGlass, RoundedCornerShape(0.dp))
                                         .clickable { editGender = g }
                                         .padding(vertical = 6.dp),
                                     contentAlignment = Alignment.Center
                                 ) {
                                     Text(
                                         text = g.uppercase(),
-                                        fontFamily = FontFamily.Monospace,
+                                        fontFamily = FontFamily.SansSerif,
                                         fontSize = 10.sp,
                                         fontWeight = if (isSel) FontWeight.Bold else FontWeight.Normal,
                                         color = if (isSel) TextWhite else TextMuted
@@ -259,7 +260,7 @@ fun ProfileScreen(repository: CommunicationRepository) {
                 }
             },
             containerColor = CardNavyGlass,
-            shape = RoundedCornerShape(12.dp)
+            shape = RoundedCornerShape(0.dp)
         )
     }
 
@@ -270,45 +271,17 @@ fun ProfileScreen(repository: CommunicationRepository) {
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        // 1. Header Bar
+        // 1. Editorial header
         item {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column {
-                    Text(
-                        text = "USER PROFILE",
-                        fontFamily = FontFamily.SansSerif,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 20.sp,
-                        color = TextWhite
-                    )
-                    Text(
-                        text = "TACTICAL IDENTITY & PREFERENCES",
-                        fontFamily = FontFamily.Monospace,
-                        fontSize = 10.sp,
-                        color = SignalCyanBright,
-                        letterSpacing = 1.sp
-                    )
-                }
-                Box(
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(6.dp))
-                        .background(CardNavyGlass)
-                        .border(1.dp, SignalCyanBright.copy(alpha = 0.5f), RoundedCornerShape(6.dp))
-                        .padding(horizontal = 8.dp, vertical = 4.dp)
-                ) {
-                    Text(
-                        text = if (userProfile.isInitialized) "PROFILE SET" else "SETUP NEEDED",
-                        fontFamily = FontFamily.Monospace,
-                        fontSize = 10.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = if (userProfile.isInitialized) NetworkGreen else EmergencyRed
-                    )
-                }
-            }
+            LabScreenHeader(
+                index = 4,
+                total = 4,
+                section = "Identity & settings",
+                title = "profile",
+                titleSize = 48.sp,
+                captions = listOf(userProfile.callsign, userProfile.role, userProfile.preferredLanguage.nativeName),
+                status = if (userProfile.isInitialized) "Profile set · ${userProfile.username}" else "Setup needed"
+            )
         }
 
         // 2. Operator Identity Card with Interactive Edit
@@ -316,9 +289,9 @@ fun ProfileScreen(repository: CommunicationRepository) {
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clip(RoundedCornerShape(12.dp))
+                    .clip(RoundedCornerShape(0.dp))
                     .background(CardNavyGlass)
-                    .border(1.dp, BorderGlass, RoundedCornerShape(12.dp))
+                    .border(1.dp, BorderGlass, RoundedCornerShape(0.dp))
                     .padding(16.dp)
             ) {
                 Row(
@@ -354,14 +327,14 @@ fun ProfileScreen(repository: CommunicationRepository) {
                             Spacer(modifier = Modifier.height(2.dp))
                             Text(
                                 text = "CALL-SIGN: ${userProfile.callsign} • GENDER: ${userProfile.gender.uppercase()}",
-                                fontFamily = FontFamily.Monospace,
+                                fontFamily = FontFamily.SansSerif,
                                 fontSize = 10.sp,
                                 color = TextMuted
                             )
                             Spacer(modifier = Modifier.height(2.dp))
                             Text(
                                 text = "NODE: ${repository.localNodeId} • PREFERRED: ${selectedLanguage.displayName.uppercase()}",
-                                fontFamily = FontFamily.Monospace,
+                                fontFamily = FontFamily.SansSerif,
                                 fontSize = 10.sp,
                                 color = EmergencyRedBright
                             )
@@ -370,9 +343,9 @@ fun ProfileScreen(repository: CommunicationRepository) {
 
                     Box(
                         modifier = Modifier
-                            .clip(RoundedCornerShape(6.dp))
+                            .clip(RoundedCornerShape(0.dp))
                             .background(SignalCyanBright.copy(alpha = 0.15f))
-                            .border(1.dp, SignalCyanBright, RoundedCornerShape(6.dp))
+                            .border(1.dp, SignalCyanBright, RoundedCornerShape(0.dp))
                             .clickable { showEditProfileDialog = true }
                             .padding(horizontal = 10.dp, vertical = 6.dp)
                     ) {
@@ -386,7 +359,7 @@ fun ProfileScreen(repository: CommunicationRepository) {
                             Spacer(modifier = Modifier.width(4.dp))
                             Text(
                                 text = "EDIT",
-                                fontFamily = FontFamily.Monospace,
+                                fontFamily = FontFamily.SansSerif,
                                 fontSize = 10.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = SignalCyanBright
@@ -405,12 +378,12 @@ fun ProfileScreen(repository: CommunicationRepository) {
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clip(RoundedCornerShape(12.dp))
+                    .clip(RoundedCornerShape(0.dp))
                     .background(if (isBaseOnline) IsroBlue.copy(alpha = 0.2f) else CardNavyGlass)
                     .border(
                         1.dp,
                         if (isBaseOnline) SignalCyanBright.copy(alpha = 0.6f) else BorderGlass,
-                        RoundedCornerShape(12.dp)
+                        RoundedCornerShape(0.dp)
                     )
                     .padding(14.dp)
             ) {
@@ -430,7 +403,7 @@ fun ProfileScreen(repository: CommunicationRepository) {
                             Spacer(modifier = Modifier.width(6.dp))
                             Text(
                                 text = "SIH-PS2-MODEL (INDICTRANS2)",
-                                fontFamily = FontFamily.Monospace,
+                                fontFamily = FontFamily.SansSerif,
                                 fontSize = 11.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = TextWhite
@@ -438,7 +411,7 @@ fun ProfileScreen(repository: CommunicationRepository) {
                         }
                         Box(
                             modifier = Modifier
-                                .clip(RoundedCornerShape(4.dp))
+                                .clip(RoundedCornerShape(0.dp))
                                 .background(
                                     if (isBaseOnline) NetworkGreen.copy(alpha = 0.25f)
                                     else TextDim.copy(alpha = 0.15f)
@@ -451,7 +424,7 @@ fun ProfileScreen(repository: CommunicationRepository) {
                                 } else {
                                     "OFFLINE (STANDBY)"
                                 },
-                                fontFamily = FontFamily.Monospace,
+                                fontFamily = FontFamily.SansSerif,
                                 fontSize = 9.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = if (isBaseOnline) NetworkGreen else TextMuted
@@ -481,10 +454,10 @@ fun ProfileScreen(repository: CommunicationRepository) {
                         OutlinedTextField(
                             value = customServerIp,
                             onValueChange = { customServerIp = it },
-                            label = { Text("Base Station IP:Port", fontSize = 9.sp, fontFamily = FontFamily.Monospace) },
+                            label = { Text("Base Station IP:Port", fontSize = 9.sp, fontFamily = FontFamily.SansSerif) },
                             textStyle = androidx.compose.ui.text.TextStyle(
                                 fontSize = 11.sp,
-                                fontFamily = FontFamily.Monospace,
+                                fontFamily = FontFamily.SansSerif,
                                 color = TextWhite
                             ),
                             singleLine = true,
@@ -524,7 +497,7 @@ fun ProfileScreen(repository: CommunicationRepository) {
                                 }
                             },
                             enabled = !isCheckingEdgeServer,
-                            shape = RoundedCornerShape(6.dp),
+                            shape = RoundedCornerShape(0.dp),
                             colors = ButtonDefaults.buttonColors(
                                 containerColor = if (setSuccess) CyberMatrixGreen.copy(alpha = 0.25f) else IsroBlue
                             ),
@@ -553,7 +526,7 @@ fun ProfileScreen(repository: CommunicationRepository) {
                                     Spacer(modifier = Modifier.width(4.dp))
                                     Text(
                                         text = "OK",
-                                        fontFamily = FontFamily.Monospace,
+                                        fontFamily = FontFamily.SansSerif,
                                         fontSize = 10.sp,
                                         fontWeight = FontWeight.Bold,
                                         color = CyberMatrixGreen
@@ -562,7 +535,7 @@ fun ProfileScreen(repository: CommunicationRepository) {
                             } else {
                                 Text(
                                     text = "SET",
-                                    fontFamily = FontFamily.Monospace,
+                                    fontFamily = FontFamily.SansSerif,
                                     fontSize = 10.sp,
                                     fontWeight = FontWeight.Bold
                                 )
@@ -578,9 +551,9 @@ fun ProfileScreen(repository: CommunicationRepository) {
                         Box(
                             modifier = Modifier
                                 .weight(1f)
-                                .clip(RoundedCornerShape(4.dp))
+                                .clip(RoundedCornerShape(0.dp))
                                 .background(CardNavy)
-                                .border(0.5.dp, BorderGlass, RoundedCornerShape(4.dp))
+                                .border(0.5.dp, BorderGlass, RoundedCornerShape(0.dp))
                                 .clickable {
                                     customServerIp = "192.168.137.143:5000"
                                     isCheckingEdgeServer = true
@@ -593,15 +566,15 @@ fun ProfileScreen(repository: CommunicationRepository) {
                                 .padding(horizontal = 4.dp, vertical = 6.dp),
                             contentAlignment = Alignment.Center
                         ) {
-                            Text("PC: 192.168.137.143", fontFamily = FontFamily.Monospace, fontSize = 8.5.sp, color = SignalCyanBright, maxLines = 1)
+                            Text("PC: 192.168.137.143", fontFamily = FontFamily.SansSerif, fontSize = 8.5.sp, color = SignalCyanBright, maxLines = 1)
                         }
 
                         Box(
                             modifier = Modifier
                                 .weight(1f)
-                                .clip(RoundedCornerShape(4.dp))
+                                .clip(RoundedCornerShape(0.dp))
                                 .background(CardNavy)
-                                .border(0.5.dp, BorderGlass, RoundedCornerShape(4.dp))
+                                .border(0.5.dp, BorderGlass, RoundedCornerShape(0.dp))
                                 .clickable {
                                     customServerIp = "192.168.137.1:5000"
                                     isCheckingEdgeServer = true
@@ -614,15 +587,15 @@ fun ProfileScreen(repository: CommunicationRepository) {
                                 .padding(horizontal = 4.dp, vertical = 6.dp),
                             contentAlignment = Alignment.Center
                         ) {
-                            Text("HOTSPOT: 192.168.137.1", fontFamily = FontFamily.Monospace, fontSize = 8.5.sp, color = SignalCyanBright, maxLines = 1)
+                            Text("HOTSPOT: 192.168.137.1", fontFamily = FontFamily.SansSerif, fontSize = 8.5.sp, color = SignalCyanBright, maxLines = 1)
                         }
 
                         Box(
                             modifier = Modifier
                                 .weight(1f)
-                                .clip(RoundedCornerShape(4.dp))
+                                .clip(RoundedCornerShape(0.dp))
                                 .background(CardNavy)
-                                .border(0.5.dp, BorderGlass, RoundedCornerShape(4.dp))
+                                .border(0.5.dp, BorderGlass, RoundedCornerShape(0.dp))
                                 .clickable {
                                     customServerIp = "10.10.10.28:5000"
                                     isCheckingEdgeServer = true
@@ -635,7 +608,7 @@ fun ProfileScreen(repository: CommunicationRepository) {
                                 .padding(horizontal = 4.dp, vertical = 6.dp),
                             contentAlignment = Alignment.Center
                         ) {
-                            Text("LAN: 10.10.10.28", fontFamily = FontFamily.Monospace, fontSize = 8.5.sp, color = SignalCyanBright, maxLines = 1)
+                            Text("LAN: 10.10.10.28", fontFamily = FontFamily.SansSerif, fontSize = 8.5.sp, color = SignalCyanBright, maxLines = 1)
                         }
                     }
 
@@ -649,7 +622,7 @@ fun ProfileScreen(repository: CommunicationRepository) {
                             }
                         },
                         enabled = !isCheckingEdgeServer,
-                        shape = RoundedCornerShape(6.dp),
+                        shape = RoundedCornerShape(0.dp),
                         colors = ButtonDefaults.outlinedButtonColors(contentColor = SignalCyanBright),
                         modifier = Modifier.fillMaxWidth().height(36.dp)
                     ) {
@@ -660,13 +633,13 @@ fun ProfileScreen(repository: CommunicationRepository) {
                                 spacing = 4.dp
                             )
                             Spacer(modifier = Modifier.width(8.dp))
-                            Text("PROBING BASE STATION...", fontFamily = FontFamily.Monospace, fontSize = 9.5.sp)
+                            Text("PROBING BASE STATION...", fontFamily = FontFamily.SansSerif, fontSize = 9.5.sp)
                         } else {
                             Icon(Icons.Default.Refresh, contentDescription = "Refresh", modifier = Modifier.size(14.dp))
                             Spacer(modifier = Modifier.width(6.dp))
                             Text(
                                 text = if (isBaseOnline) "RE-CHECK SIH-PS2-MODEL ($baseEndpoint)" else "AUTO-SCAN BASE STATION",
-                                fontFamily = FontFamily.Monospace,
+                                fontFamily = FontFamily.SansSerif,
                                 fontSize = 9.5.sp,
                                 fontWeight = FontWeight.Bold
                             )
@@ -681,12 +654,12 @@ fun ProfileScreen(repository: CommunicationRepository) {
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clip(RoundedCornerShape(12.dp))
+                    .clip(RoundedCornerShape(0.dp))
                     .background(NetworkGreen.copy(alpha = 0.08f))
                     .border(
                         1.dp,
                         NetworkGreen.copy(alpha = 0.45f),
-                        RoundedCornerShape(12.dp)
+                        RoundedCornerShape(0.dp)
                     )
                     .padding(14.dp)
             ) {
@@ -707,14 +680,14 @@ fun ProfileScreen(repository: CommunicationRepository) {
                             Column {
                                 Text(
                                     text = "SIH-PS2-MODEL OFFLINE ENGINE",
-                                    fontFamily = FontFamily.Monospace,
+                                    fontFamily = FontFamily.SansSerif,
                                     fontSize = 11.5.sp,
                                     fontWeight = FontWeight.Bold,
                                     color = TextWhite
                                 )
                                 Text(
                                     text = "INDICTRANS2 DISTILLED TACTICAL NEURAL",
-                                    fontFamily = FontFamily.Monospace,
+                                    fontFamily = FontFamily.SansSerif,
                                     fontSize = 8.5.sp,
                                     color = SignalCyanBright,
                                     letterSpacing = 0.5.sp
@@ -723,14 +696,14 @@ fun ProfileScreen(repository: CommunicationRepository) {
                         }
                         Box(
                             modifier = Modifier
-                                .clip(RoundedCornerShape(4.dp))
+                                .clip(RoundedCornerShape(0.dp))
                                 .background(NetworkGreen.copy(alpha = 0.22f))
-                                .border(1.dp, NetworkGreen.copy(alpha = 0.5f), RoundedCornerShape(4.dp))
+                                .border(1.dp, NetworkGreen.copy(alpha = 0.5f), RoundedCornerShape(0.dp))
                                 .padding(horizontal = 7.dp, vertical = 3.dp)
                         ) {
                             Text(
                                 text = "ACTIVE (100% OFFLINE READY)",
-                                fontFamily = FontFamily.Monospace,
+                                fontFamily = FontFamily.SansSerif,
                                 fontSize = 8.5.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = NetworkGreen
@@ -754,14 +727,14 @@ fun ProfileScreen(repository: CommunicationRepository) {
                         listOf("100% Offline", "Tanglish Ready", "Zero Internet", "Pre-bundled").forEach { tag ->
                             Box(
                                 modifier = Modifier
-                                    .clip(RoundedCornerShape(4.dp))
+                                    .clip(RoundedCornerShape(0.dp))
                                     .background(DeepSpaceNavy)
-                                    .border(0.5.dp, SignalCyanBright.copy(alpha = 0.3f), RoundedCornerShape(4.dp))
+                                    .border(0.5.dp, SignalCyanBright.copy(alpha = 0.3f), RoundedCornerShape(0.dp))
                                     .padding(horizontal = 6.dp, vertical = 2.dp)
                             ) {
                                 Text(
                                     text = "✓ $tag",
-                                    fontFamily = FontFamily.Monospace,
+                                    fontFamily = FontFamily.SansSerif,
                                     fontSize = 8.5.sp,
                                     color = SignalCyanBright
                                 )
@@ -773,9 +746,9 @@ fun ProfileScreen(repository: CommunicationRepository) {
                         Column(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .clip(RoundedCornerShape(6.dp))
+                                .clip(RoundedCornerShape(0.dp))
                                 .background(DeepSpaceNavy)
-                                .border(1.dp, SignalCyanBright.copy(alpha = 0.35f), RoundedCornerShape(6.dp))
+                                .border(1.dp, SignalCyanBright.copy(alpha = 0.35f), RoundedCornerShape(0.dp))
                                 .padding(10.dp)
                         ) {
                             Row(
@@ -784,14 +757,14 @@ fun ProfileScreen(repository: CommunicationRepository) {
                             ) {
                                 Text(
                                     text = "SYNCING TRAINED NEURAL PACK: ${(packProgress * 100).toInt()}%",
-                                    fontFamily = FontFamily.Monospace,
+                                    fontFamily = FontFamily.SansSerif,
                                     fontSize = 9.5.sp,
                                     fontWeight = FontWeight.Bold,
                                     color = SignalCyanBright
                                 )
                                 Text(
                                     text = "${(packProgress * 25).toInt()} KB / 25 KB",
-                                    fontFamily = FontFamily.Monospace,
+                                    fontFamily = FontFamily.SansSerif,
                                     fontSize = 9.sp,
                                     color = TextDim
                                 )
@@ -802,7 +775,7 @@ fun ProfileScreen(repository: CommunicationRepository) {
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .height(5.dp)
-                                    .clip(RoundedCornerShape(3.dp)),
+                                    .clip(RoundedCornerShape(0.dp)),
                                 color = NetworkGreen,
                                 trackColor = CardNavyGlass
                             )
@@ -827,7 +800,7 @@ fun ProfileScreen(repository: CommunicationRepository) {
                                 )
                             },
                             enabled = !isDownloadingPack && !isDownloadingModel,
-                            shape = RoundedCornerShape(6.dp),
+                            shape = RoundedCornerShape(0.dp),
                             colors = ButtonDefaults.buttonColors(containerColor = NetworkGreen),
                             modifier = Modifier.fillMaxWidth().height(38.dp)
                         ) {
@@ -836,7 +809,7 @@ fun ProfileScreen(repository: CommunicationRepository) {
                                 Spacer(modifier = Modifier.width(8.dp))
                                 Text(
                                     text = "STREAMING PACK... ${(packProgress * 100).toInt()}%",
-                                    fontFamily = FontFamily.Monospace,
+                                    fontFamily = FontFamily.SansSerif,
                                     fontSize = 10.sp,
                                     fontWeight = FontWeight.Bold,
                                     color = DeepSpaceNavy
@@ -851,7 +824,7 @@ fun ProfileScreen(repository: CommunicationRepository) {
                                 Spacer(modifier = Modifier.width(6.dp))
                                 Text(
                                     text = "SYNC / UPDATE ${selectedLanguage.displayName.uppercase()} FROM BASE STATION",
-                                    fontFamily = FontFamily.Monospace,
+                                    fontFamily = FontFamily.SansSerif,
                                     fontSize = 10.sp,
                                     fontWeight = FontWeight.Bold,
                                     color = DeepSpaceNavy
@@ -863,7 +836,7 @@ fun ProfileScreen(repository: CommunicationRepository) {
                     packStatusText?.let {
                         Text(
                             text = it,
-                            fontFamily = FontFamily.Monospace,
+                            fontFamily = FontFamily.SansSerif,
                             fontSize = 9.5.sp,
                             color = if (isPackReady) NetworkGreen else SignalCyanBright
                         )
@@ -881,7 +854,7 @@ fun ProfileScreen(repository: CommunicationRepository) {
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(
                                     text = "GOOGLE ML KIT AUXILIARY (~30 MB)",
-                                    fontFamily = FontFamily.Monospace,
+                                    fontFamily = FontFamily.SansSerif,
                                     fontSize = 10.sp,
                                     fontWeight = FontWeight.Bold,
                                     color = if (isModelDownloaded) NetworkGreen else TextDim
@@ -897,11 +870,11 @@ fun ProfileScreen(repository: CommunicationRepository) {
                             if (isModelDownloaded) {
                                 Box(
                                     modifier = Modifier
-                                        .clip(RoundedCornerShape(3.dp))
+                                        .clip(RoundedCornerShape(0.dp))
                                         .background(NetworkGreen.copy(alpha = 0.2f))
                                         .padding(horizontal = 6.dp, vertical = 2.dp)
                                 ) {
-                                    Text("INSTALLED", fontFamily = FontFamily.Monospace, fontSize = 8.5.sp, color = NetworkGreen)
+                                    Text("INSTALLED", fontFamily = FontFamily.SansSerif, fontSize = 8.5.sp, color = NetworkGreen)
                                 }
                             } else {
                                 OutlinedButton(
@@ -919,7 +892,7 @@ fun ProfileScreen(repository: CommunicationRepository) {
                                         }
                                     },
                                     enabled = !isDownloadingModel && !isDownloadingPack,
-                                    shape = RoundedCornerShape(4.dp),
+                                    shape = RoundedCornerShape(0.dp),
                                     colors = ButtonDefaults.outlinedButtonColors(contentColor = SignalCyanBright),
                                     contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
                                     modifier = Modifier.height(30.dp)
@@ -927,11 +900,11 @@ fun ProfileScreen(repository: CommunicationRepository) {
                                     if (isDownloadingModel) {
                                         CircularProgressIndicator(modifier = Modifier.size(10.dp), strokeWidth = 1.5.dp, color = SignalCyanBright)
                                         Spacer(modifier = Modifier.width(4.dp))
-                                        Text("CONNECTING...", fontFamily = FontFamily.Monospace, fontSize = 8.5.sp)
+                                        Text("CONNECTING...", fontFamily = FontFamily.SansSerif, fontSize = 8.5.sp)
                                     } else {
                                         Icon(Icons.Default.Download, contentDescription = "Download", modifier = Modifier.size(12.dp))
                                         Spacer(modifier = Modifier.width(4.dp))
-                                        Text("GET OPTIONAL", fontFamily = FontFamily.Monospace, fontSize = 8.5.sp)
+                                        Text("GET OPTIONAL", fontFamily = FontFamily.SansSerif, fontSize = 8.5.sp)
                                     }
                                 }
                             }
@@ -940,7 +913,7 @@ fun ProfileScreen(repository: CommunicationRepository) {
                         modelStatusText?.let {
                             Text(
                                 text = it,
-                                fontFamily = FontFamily.Monospace,
+                                fontFamily = FontFamily.SansSerif,
                                 fontSize = 9.sp,
                                 color = if (isModelDownloaded) NetworkGreen else SignalCyanBright
                             )
@@ -960,14 +933,14 @@ fun ProfileScreen(repository: CommunicationRepository) {
                 ) {
                     Text(
                         text = "NATIVE OPERATOR LANGUAGE",
-                        fontFamily = FontFamily.Monospace,
+                        fontFamily = FontFamily.SansSerif,
                         fontSize = 11.sp,
                         fontWeight = FontWeight.Bold,
                         color = SignalCyanBright
                     )
                     Text(
                         text = "${selectedLanguage.nativeName} (${selectedLanguage.displayName})",
-                        fontFamily = FontFamily.Monospace,
+                        fontFamily = FontFamily.SansSerif,
                         fontSize = 11.sp,
                         fontWeight = FontWeight.Bold,
                         color = NetworkGreen
@@ -995,12 +968,12 @@ fun ProfileScreen(repository: CommunicationRepository) {
                                 Box(
                                     modifier = Modifier
                                         .weight(1f)
-                                        .clip(RoundedCornerShape(8.dp))
-                                        .background(if (isSelected) Color(0x3306B6D4) else CardNavyGlass)
+                                        .clip(RoundedCornerShape(0.dp))
+                                        .background(if (isSelected) LabOrangeTint else CardNavyGlass)
                                         .border(
                                             1.dp,
                                             if (isSelected) SignalCyanBright else BorderGlass,
-                                            RoundedCornerShape(8.dp)
+                                            RoundedCornerShape(0.dp)
                                         )
                                         .clickable {
                                             repository.setSelectedLanguage(lang)
@@ -1050,7 +1023,7 @@ fun ProfileScreen(repository: CommunicationRepository) {
             Column {
                 Text(
                     text = "HARDWARE & WIRELESS RADIOS",
-                    fontFamily = FontFamily.Monospace,
+                    fontFamily = FontFamily.SansSerif,
                     fontSize = 11.sp,
                     fontWeight = FontWeight.Bold,
                     color = SignalCyanBright
@@ -1060,9 +1033,9 @@ fun ProfileScreen(repository: CommunicationRepository) {
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clip(RoundedCornerShape(10.dp))
+                        .clip(RoundedCornerShape(0.dp))
                         .background(CardNavyGlass)
-                        .border(1.dp, BorderGlass, RoundedCornerShape(10.dp))
+                        .border(1.dp, BorderGlass, RoundedCornerShape(0.dp))
                         .padding(12.dp)
                 ) {
                     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -1115,7 +1088,7 @@ fun ProfileScreen(repository: CommunicationRepository) {
             Column {
                 Text(
                     text = "OFFLINE SECURITY & AUDIT STATS",
-                    fontFamily = FontFamily.Monospace,
+                    fontFamily = FontFamily.SansSerif,
                     fontSize = 11.sp,
                     fontWeight = FontWeight.Bold,
                     color = SignalCyanBright
@@ -1125,9 +1098,9 @@ fun ProfileScreen(repository: CommunicationRepository) {
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clip(RoundedCornerShape(10.dp))
+                        .clip(RoundedCornerShape(0.dp))
                         .background(CardNavyGlass)
-                        .border(1.dp, BorderGlass, RoundedCornerShape(10.dp))
+                        .border(1.dp, BorderGlass, RoundedCornerShape(0.dp))
                         .padding(12.dp)
                 ) {
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -1136,28 +1109,28 @@ fun ProfileScreen(repository: CommunicationRepository) {
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
                             Text(text = "Security Architecture", fontFamily = FontFamily.SansSerif, fontSize = 12.sp, color = TextMuted)
-                            Text(text = "AES-256 GCM + CRC16", fontFamily = FontFamily.Monospace, fontSize = 12.sp, fontWeight = FontWeight.Bold, color = NetworkGreen)
+                            Text(text = "AES-256 GCM + CRC16", fontFamily = FontFamily.SansSerif, fontSize = 12.sp, fontWeight = FontWeight.Bold, color = NetworkGreen)
                         }
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
                             Text(text = "Cloud / Internet Leakage", fontFamily = FontFamily.SansSerif, fontSize = 12.sp, color = TextMuted)
-                            Text(text = "0 BYTES (100% Offline)", fontFamily = FontFamily.Monospace, fontSize = 12.sp, fontWeight = FontWeight.Bold, color = NetworkGreen)
+                            Text(text = "0 BYTES (100% Offline)", fontFamily = FontFamily.SansSerif, fontSize = 12.sp, fontWeight = FontWeight.Bold, color = NetworkGreen)
                         }
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
                             Text(text = "Messages in Local Log", fontFamily = FontFamily.SansSerif, fontSize = 12.sp, color = TextMuted)
-                            Text(text = "${messages.size} Packets", fontFamily = FontFamily.Monospace, fontSize = 12.sp, fontWeight = FontWeight.Bold, color = TextWhite)
+                            Text(text = "${messages.size} Packets", fontFamily = FontFamily.SansSerif, fontSize = 12.sp, fontWeight = FontWeight.Bold, color = TextWhite)
                         }
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
                             Text(text = "Known Mesh Nodes", fontFamily = FontFamily.SansSerif, fontSize = 12.sp, color = TextMuted)
-                            Text(text = "${nodes.size} Devices", fontFamily = FontFamily.Monospace, fontSize = 12.sp, fontWeight = FontWeight.Bold, color = SignalCyanBright)
+                            Text(text = "${nodes.size} Devices", fontFamily = FontFamily.SansSerif, fontSize = 12.sp, fontWeight = FontWeight.Bold, color = SignalCyanBright)
                         }
                     }
                 }
@@ -1174,7 +1147,7 @@ fun ProfileScreen(repository: CommunicationRepository) {
                 ) {
                     Text(
                         text = "ISRO PS 26173 OFFICIAL METRICS AUDIT",
-                        fontFamily = FontFamily.Monospace,
+                        fontFamily = FontFamily.SansSerif,
                         fontSize = 11.sp,
                         fontWeight = FontWeight.Bold,
                         color = EmergencyRedBright
@@ -1182,14 +1155,14 @@ fun ProfileScreen(repository: CommunicationRepository) {
                     val badgeColor = if (!hasAnyLiveSamples) TextMuted else if (criteriaPassed) NetworkGreen else WarningAmber
                     Box(
                         modifier = Modifier
-                            .clip(RoundedCornerShape(4.dp))
+                            .clip(RoundedCornerShape(0.dp))
                             .background(badgeColor.copy(alpha = 0.2f))
-                            .border(1.dp, badgeColor, RoundedCornerShape(4.dp))
+                            .border(1.dp, badgeColor, RoundedCornerShape(0.dp))
                             .padding(horizontal = 6.dp, vertical = 2.dp)
                     ) {
                         Text(
                             text = if (!hasAnyLiveSamples) "COLLECTING LIVE DATA" else if (criteriaPassed) "ALL CRITERIA PASSED" else "REVIEW REQUIRED",
-                            fontFamily = FontFamily.Monospace,
+                            fontFamily = FontFamily.SansSerif,
                             fontSize = 8.5.sp,
                             fontWeight = FontWeight.Bold,
                             color = badgeColor
@@ -1201,9 +1174,9 @@ fun ProfileScreen(repository: CommunicationRepository) {
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clip(RoundedCornerShape(12.dp))
+                        .clip(RoundedCornerShape(0.dp))
                         .background(CardNavyGlass)
-                        .border(1.dp, EmergencyRedBright.copy(alpha = 0.5f), RoundedCornerShape(12.dp))
+                        .border(1.dp, EmergencyRedBright.copy(alpha = 0.5f), RoundedCornerShape(0.dp))
                         .padding(14.dp)
                 ) {
                     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -1214,16 +1187,16 @@ fun ProfileScreen(repository: CommunicationRepository) {
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Column(modifier = Modifier.weight(1f)) {
-                                Text("1. ACCURACY (40% WEIGHTAGE)", fontFamily = FontFamily.Monospace, fontSize = 10.sp, fontWeight = FontWeight.Bold, color = TextWhite)
+                                Text("1. ACCURACY (40% WEIGHTAGE)", fontFamily = FontFamily.SansSerif, fontSize = 10.sp, fontWeight = FontWeight.Bold, color = TextWhite)
                                 Text("STT confidence, live from this device's recognizer", fontFamily = FontFamily.SansSerif, fontSize = 10.sp, color = TextDim)
                             }
                             Column(horizontalAlignment = Alignment.End) {
                                 Text(
                                     perf.avgSttConfidencePct?.let { "${it.roundToInt()}% CONF" } ?: "-- (speak to sample)",
-                                    fontFamily = FontFamily.Monospace, fontSize = 12.sp, fontWeight = FontWeight.Bold,
+                                    fontFamily = FontFamily.SansSerif, fontSize = 12.sp, fontWeight = FontWeight.Bold,
                                     color = metricColor(perf.avgSttConfidencePct, 70f, higherIsBetter = true)
                                 )
-                                Text(if (perf.sttSampleCount > 0) "n=${perf.sttSampleCount} samples" else "Target > 70%", fontFamily = FontFamily.Monospace, fontSize = 8.5.sp, color = TextMuted)
+                                Text(if (perf.sttSampleCount > 0) "n=${perf.sttSampleCount} samples" else "Target > 70%", fontFamily = FontFamily.SansSerif, fontSize = 8.5.sp, color = TextMuted)
                             }
                         }
 
@@ -1236,16 +1209,16 @@ fun ProfileScreen(repository: CommunicationRepository) {
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Column(modifier = Modifier.weight(1f)) {
-                                Text("2. NEURAL TTS QUALITY", fontFamily = FontFamily.Monospace, fontSize = 10.sp, fontWeight = FontWeight.Bold, color = TextWhite)
+                                Text("2. NEURAL TTS QUALITY", fontFamily = FontFamily.SansSerif, fontSize = 10.sp, fontWeight = FontWeight.Bold, color = TextWhite)
                                 Text("Synthesis success rate, live from this device", fontFamily = FontFamily.SansSerif, fontSize = 10.sp, color = TextDim)
                             }
                             Column(horizontalAlignment = Alignment.End) {
                                 Text(
                                     perf.ttsSuccessRatePct?.let { "${it.roundToInt()}% OK" } ?: "-- (no playback yet)",
-                                    fontFamily = FontFamily.Monospace, fontSize = 12.sp, fontWeight = FontWeight.Bold,
+                                    fontFamily = FontFamily.SansSerif, fontSize = 12.sp, fontWeight = FontWeight.Bold,
                                     color = metricColor(perf.ttsSuccessRatePct, 90f, higherIsBetter = true)
                                 )
-                                Text(if (perf.ttsSampleCount > 0) "n=${perf.ttsSampleCount} utterances" else "Target > 90%", fontFamily = FontFamily.Monospace, fontSize = 8.5.sp, color = TextMuted)
+                                Text(if (perf.ttsSampleCount > 0) "n=${perf.ttsSampleCount} utterances" else "Target > 90%", fontFamily = FontFamily.SansSerif, fontSize = 8.5.sp, color = TextMuted)
                             }
                         }
 
@@ -1258,7 +1231,7 @@ fun ProfileScreen(repository: CommunicationRepository) {
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Column(modifier = Modifier.weight(1f)) {
-                                Text("3. LATENCY & RTF (20% WEIGHTAGE)", fontFamily = FontFamily.Monospace, fontSize = 10.sp, fontWeight = FontWeight.Bold, color = TextWhite)
+                                Text("3. LATENCY & RTF (20% WEIGHTAGE)", fontFamily = FontFamily.SansSerif, fontSize = 10.sp, fontWeight = FontWeight.Bold, color = TextWhite)
                                 Text("STT completion delay & TTS Real-Time Factor, live", fontFamily = FontFamily.SansSerif, fontSize = 10.sp, color = TextDim)
                             }
                             Column(horizontalAlignment = Alignment.End) {
@@ -1266,10 +1239,10 @@ fun ProfileScreen(repository: CommunicationRepository) {
                                 val rtfText = perf.avgTtsRtf?.let { String.format(Locale.US, "%.2f", it) } ?: "--"
                                 Text(
                                     "$latencyText • RTF $rtfText",
-                                    fontFamily = FontFamily.Monospace, fontSize = 11.5.sp, fontWeight = FontWeight.Bold,
+                                    fontFamily = FontFamily.SansSerif, fontSize = 11.5.sp, fontWeight = FontWeight.Bold,
                                     color = metricColor(perf.avgSttLatencyMs?.toFloat(), 500f, higherIsBetter = false)
                                 )
-                                Text("Target < 500ms, RTF < 0.3", fontFamily = FontFamily.Monospace, fontSize = 8.5.sp, color = TextMuted)
+                                Text("Target < 500ms, RTF < 0.3", fontFamily = FontFamily.SansSerif, fontSize = 8.5.sp, color = TextMuted)
                             }
                         }
 
@@ -1282,18 +1255,18 @@ fun ProfileScreen(repository: CommunicationRepository) {
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Column(modifier = Modifier.weight(1f)) {
-                                Text("4. BANDWIDTH REDUCTION (20% WEIGHT)", fontFamily = FontFamily.Monospace, fontSize = 10.sp, fontWeight = FontWeight.Bold, color = TextWhite)
+                                Text("4. BANDWIDTH REDUCTION (20% WEIGHT)", fontFamily = FontFamily.SansSerif, fontSize = 10.sp, fontWeight = FontWeight.Bold, color = TextWhite)
                                 Text("Raw voice audio (64 KB) vs. this device's sent packets", fontFamily = FontFamily.SansSerif, fontSize = 10.sp, color = TextDim)
                             }
                             Column(horizontalAlignment = Alignment.End) {
                                 Text(
                                     avgCompressionPct?.let { "${String.format(Locale.US, "%.1f", it)}% SAVED" } ?: "-- (send a message)",
-                                    fontFamily = FontFamily.Monospace, fontSize = 12.sp, fontWeight = FontWeight.Bold,
+                                    fontFamily = FontFamily.SansSerif, fontSize = 12.sp, fontWeight = FontWeight.Bold,
                                     color = metricColor(avgCompressionPct?.toFloat(), 90f, higherIsBetter = true)
                                 )
                                 Text(
                                     avgPayloadBytes?.let { "${it.roundToInt()}B wire vs 64KB raw" } ?: "no messages sent yet",
-                                    fontFamily = FontFamily.Monospace, fontSize = 8.5.sp, color = TextMuted
+                                    fontFamily = FontFamily.SansSerif, fontSize = 8.5.sp, color = TextMuted
                                 )
                             }
                         }
@@ -1307,16 +1280,16 @@ fun ProfileScreen(repository: CommunicationRepository) {
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Column(modifier = Modifier.weight(1f)) {
-                                Text("5. MESH PACKET DELIVERY RATE", fontFamily = FontFamily.Monospace, fontSize = 10.sp, fontWeight = FontWeight.Bold, color = TextWhite)
+                                Text("5. MESH PACKET DELIVERY RATE", fontFamily = FontFamily.SansSerif, fontSize = 10.sp, fontWeight = FontWeight.Bold, color = TextWhite)
                                 Text("Store-and-forward mesh routing with CRC16, live", fontFamily = FontFamily.SansSerif, fontSize = 10.sp, color = TextDim)
                             }
                             Column(horizontalAlignment = Alignment.End) {
                                 Text(
                                     "${String.format(Locale.US, "%.1f", deliveryRatePct)}% ACK",
-                                    fontFamily = FontFamily.Monospace, fontSize = 12.sp, fontWeight = FontWeight.Bold,
+                                    fontFamily = FontFamily.SansSerif, fontSize = 12.sp, fontWeight = FontWeight.Bold,
                                     color = metricColor(deliveryRatePct, 98f, higherIsBetter = true)
                                 )
-                                Text("Target > 98.0%", fontFamily = FontFamily.Monospace, fontSize = 8.5.sp, color = TextMuted)
+                                Text("Target > 98.0%", fontFamily = FontFamily.SansSerif, fontSize = 8.5.sp, color = TextMuted)
                             }
                         }
 
@@ -1329,12 +1302,12 @@ fun ProfileScreen(repository: CommunicationRepository) {
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Column(modifier = Modifier.weight(1f)) {
-                                Text("6. ON-DEVICE FOOTPRINT & AIR-GAP", fontFamily = FontFamily.Monospace, fontSize = 10.sp, fontWeight = FontWeight.Bold, color = TextWhite)
+                                Text("6. ON-DEVICE FOOTPRINT & AIR-GAP", fontFamily = FontFamily.SansSerif, fontSize = 10.sp, fontWeight = FontWeight.Bold, color = TextWhite)
                                 Text("Live RAM usage on this device • offline compliance", fontFamily = FontFamily.SansSerif, fontSize = 10.sp, color = TextDim)
                             }
                             Column(horizontalAlignment = Alignment.End) {
-                                Text("${perf.nativePssMb.roundToInt()}MB • 0B Cloud", fontFamily = FontFamily.Monospace, fontSize = 11.5.sp, fontWeight = FontWeight.Bold, color = NetworkGreen)
-                                Text("100% Air-Gapped", fontFamily = FontFamily.Monospace, fontSize = 8.5.sp, color = TextMuted)
+                                Text("${perf.nativePssMb.roundToInt()}MB • 0B Cloud", fontFamily = FontFamily.SansSerif, fontSize = 11.5.sp, fontWeight = FontWeight.Bold, color = NetworkGreen)
+                                Text("100% Air-Gapped", fontFamily = FontFamily.SansSerif, fontSize = 8.5.sp, color = TextMuted)
                             }
                         }
                     }
@@ -1389,7 +1362,7 @@ private fun RadioStatusRow(
                 )
                 Text(
                     text = detail,
-                    fontFamily = FontFamily.Monospace,
+                    fontFamily = FontFamily.SansSerif,
                     fontSize = 10.sp,
                     color = TextDim
                 )
@@ -1397,14 +1370,14 @@ private fun RadioStatusRow(
         }
         Box(
             modifier = Modifier
-                .clip(RoundedCornerShape(4.dp))
+                .clip(RoundedCornerShape(0.dp))
                 .background(statusColor.copy(alpha = 0.15f))
-                .border(1.dp, statusColor.copy(alpha = 0.5f), RoundedCornerShape(4.dp))
+                .border(1.dp, statusColor.copy(alpha = 0.5f), RoundedCornerShape(0.dp))
                 .padding(horizontal = 6.dp, vertical = 2.dp)
         ) {
             Text(
                 text = status,
-                fontFamily = FontFamily.Monospace,
+                fontFamily = FontFamily.SansSerif,
                 fontSize = 9.sp,
                 fontWeight = FontWeight.Bold,
                 color = statusColor
