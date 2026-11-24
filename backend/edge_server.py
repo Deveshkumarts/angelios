@@ -8,21 +8,38 @@ Exposes REST and WebSocket endpoints for:
 3. /api/v1/translate_text   : IndicTrans2 Machine Translation
 4. /api/v1/tts              : IndicF5 Text-to-Speech
 5. /api/v1/health           : GPU Telemetry (NVIDIA RTX 4050), VRAM & Link Status
+
+Endpoints used by the Android app (OfflineTranslatorEngine.kt):
+  GET  /api/status            : liveness probe  -> {"status", "device", "cuda_available"}
+  POST /api/translate         : JSON {"text","src_lang","tgt_lang"} (FLORES or ISO codes)
+                                -> {"translation": "..."}; 503 if no model can serve it
+  GET  /api/pack/{flores_tag} : offline phrase pack JSON for a language (e.g. tam_Taml)
+
+Run:  python edge_server.py   (listens on 0.0.0.0:5000, override with ITANTRA_PORT)
 ===============================================================================
 """
 
 import os
 import io
 import time
+from typing import Optional
 import torch
 try:
     import torchaudio
 except ImportError:
     torchaudio = None
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException
-from fastapi.responses import Response, JSONResponse
+from fastapi.responses import Response, JSONResponse, FileResponse
 from fastapi.middleware.cors import CORSMiddleware
-from pipeline import IndicSpeechToSpeechPipeline, DEVICE
+from pydantic import BaseModel
+from pipeline import IndicSpeechToSpeechPipeline, DEVICE, LANGUAGE_ISO_MAP, normalize_lang
+
+SERVER_PORT = int(os.environ.get("ITANTRA_PORT", "5000"))
+# Phrase packs bundled with the app; the server hands the same files to phones that lack them.
+PACKS_DIR = os.environ.get(
+    "ITANTRA_PACKS_DIR",
+    os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "app", "src", "main", "assets", "packs"),
+)
 
 app = FastAPI(
     title="iTANTRA Edge AI Speech Translation Server",
@@ -33,7 +50,7 @@ app = FastAPI(
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
-    allow_credentials=True,
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -68,6 +85,59 @@ def health_check():
             "tts": "AI4Bharat IndicF5 (400M)"
         }
     }
+
+# ---------------------------------------------------------------- app-facing API
+
+class TranslateRequest(BaseModel):
+    text: str
+    src_lang: str = "en"
+    tgt_lang: str = "ta"
+    tone: Optional[str] = None
+
+
+@app.get("/api/status")
+def app_status():
+    return {
+        "status": "online",
+        "device": DEVICE,
+        "cuda_available": torch.cuda.is_available(),
+        "mt_loaded": bool(pipeline is not None and pipeline.mt.is_loaded),
+        "languages": sorted(LANGUAGE_ISO_MAP.keys()),
+    }
+
+
+@app.post("/api/translate")
+def app_translate(req: TranslateRequest):
+    if pipeline is None:
+        raise HTTPException(status_code=503, detail="Pipeline not initialized")
+    src, tgt = normalize_lang(req.src_lang), normalize_lang(req.tgt_lang)
+    if src not in LANGUAGE_ISO_MAP or tgt not in LANGUAGE_ISO_MAP:
+        raise HTTPException(status_code=400, detail=f"Unsupported language pair {req.src_lang}->{req.tgt_lang}")
+    start = time.time()
+    translated = pipeline.mt.translate(req.text, src, tgt)
+    if translated is None:
+        raise HTTPException(status_code=503, detail=f"No translation model loaded for {src}->{tgt}")
+    return {
+        "translation": translated,
+        "src_lang": src,
+        "tgt_lang": tgt,
+        "latency_ms": round((time.time() - start) * 1000, 1),
+        "device": DEVICE,
+    }
+
+
+@app.get("/api/pack/{flores_tag}")
+def app_language_pack(flores_tag: str):
+    # Only plain FLORES tags like "tam_Taml" - never a path
+    if not flores_tag.replace("_", "").isalnum():
+        raise HTTPException(status_code=400, detail="Invalid language tag")
+    path = os.path.join(PACKS_DIR, f"{flores_tag}.json")
+    if not os.path.isfile(path):
+        raise HTTPException(status_code=404, detail=f"No pack for {flores_tag}")
+    return FileResponse(path, media_type="application/json")
+
+
+# ---------------------------------------------------------------- v1 API
 
 @app.post("/api/v1/translate_speech")
 async def translate_speech_endpoint(
@@ -128,7 +198,9 @@ def translate_text_endpoint(
     """
     if pipeline is None:
         raise HTTPException(status_code=503, detail="Pipeline not initialized")
-    translated = pipeline.mt_model.translate(text, src_lang, tgt_lang)
+    translated = pipeline.mt.translate(text, normalize_lang(src_lang), normalize_lang(tgt_lang))
+    if translated is None:
+        raise HTTPException(status_code=503, detail="No translation model loaded for this language pair")
     return {
         "source_text": text,
         "translated_text": translated,
@@ -139,5 +211,5 @@ def translate_text_endpoint(
 
 if __name__ == "__main__":
     import uvicorn
-    print("[*] Launching iTANTRA Edge AI Server on port 8000...")
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    print(f"[*] Launching iTANTRA Edge AI Server on port {SERVER_PORT}...")
+    uvicorn.run(app, host="0.0.0.0", port=SERVER_PORT)

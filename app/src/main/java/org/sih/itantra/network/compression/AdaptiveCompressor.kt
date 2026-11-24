@@ -25,6 +25,11 @@ data class CompressionResult(
  */
 class AdaptiveCompressor {
 
+    companion object {
+        const val SOS_LOCATION_MARKER: Byte = 0x47 // 'G'
+        const val SOS_LOCATION_BYTES = 9
+    }
+
     fun compress(
         text: String,
         semantic: SemanticMessage,
@@ -112,16 +117,37 @@ class AdaptiveCompressor {
                 DecompressedResult(semantic?.rawText ?: "", semantic)
             }
             PacketType.EMERGENCY, PacketType.SOS -> {
+                val location = decodeSosLocation(payload)
                 val semantic = decompressEmergency(payload, sourceLanguage)
                 val displayText = if (semantic.rawText.isNotBlank() && semantic.rawText != "CRITICAL SOS BEACON BROADCAST") {
                     semantic.rawText
                 } else {
                     "EMERGENCY DISTRESS BEACON"
                 }
-                DecompressedResult(displayText, semantic)
+                DecompressedResult(displayText, semantic, location?.first, location?.second)
             }
             else -> DecompressedResult(String(payload, Charsets.UTF_8), null)
         }
+    }
+
+    /**
+     * Optional SOS location block appended after the 12-byte beacon:
+     * `'G'` marker + latitude (float32) + longitude (float32) = 9 bytes, ~1 m precision.
+     */
+    fun encodeSosLocation(latitude: Double, longitude: Double): ByteArray =
+        java.nio.ByteBuffer.allocate(SOS_LOCATION_BYTES)
+            .put(SOS_LOCATION_MARKER)
+            .putFloat(latitude.toFloat())
+            .putFloat(longitude.toFloat())
+            .array()
+
+    fun decodeSosLocation(data: ByteArray): Pair<Double, Double>? {
+        if (data.size < 12 + SOS_LOCATION_BYTES || data[12] != SOS_LOCATION_MARKER) return null
+        val buf = java.nio.ByteBuffer.wrap(data, 13, 8)
+        val lat = buf.float.toDouble()
+        val lon = buf.float.toDouble()
+        if (lat !in -90.0..90.0 || lon !in -180.0..180.0) return null
+        return lat to lon
     }
 
     private fun compressEmergency(semantic: SemanticMessage): ByteArray {
@@ -151,8 +177,9 @@ class AdaptiveCompressor {
         val tgtLang = Language.fromId(buffer.get())
         val timestamp = buffer.getLong()
 
-        val extraText = if (data.size > 12) {
-            String(data, 12, data.size - 12, Charsets.UTF_8).trim()
+        val textStart = if (decodeSosLocation(data) != null) 12 + SOS_LOCATION_BYTES else 12
+        val extraText = if (data.size > textStart) {
+            String(data, textStart, data.size - textStart, Charsets.UTF_8).trim()
         } else {
             ""
         }
@@ -203,6 +230,9 @@ class AdaptiveCompressor {
 
     data class DecompressedResult(
         val reconstructedText: String,
-        val semantic: SemanticMessage?
+        val semantic: SemanticMessage?,
+        /** GPS fix carried by an SOS beacon, if the sender had one. */
+        val latitude: Double? = null,
+        val longitude: Double? = null
     )
 }

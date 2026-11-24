@@ -36,7 +36,9 @@ data class LinkMetrics(
     val latencyMs: Long = 45L,
     val jitterMs: Long = 8L,
     val batteryPct: Int = 85,
-    val activeTransport: TransportType = TransportType.WIFI_DIRECT
+    val activeTransport: TransportType = TransportType.WIFI_DIRECT,
+    /** Peers whose beacons were heard within the measurement window. */
+    val peerCount: Int = 0
 ) {
     /**
      * Compute composite Link Quality Score (LQS) in [0.0, 1.0]

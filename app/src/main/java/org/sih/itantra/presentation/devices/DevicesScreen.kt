@@ -121,7 +121,7 @@ fun DevicesScreen(repository: CommunicationRepository) {
                     Text("Signal Strength: ${node.rssi} dBm", fontFamily = FontFamily.Monospace, fontSize = 12.sp, color = TextMuted)
                     Text("Battery Level: ${node.batteryPct}%", fontFamily = FontFamily.Monospace, fontSize = 12.sp, color = TextMuted)
                     Text("Multi-Hop Distance: ${node.hopCount} Hops", fontFamily = FontFamily.Monospace, fontSize = 12.sp, color = TextMuted)
-                    Text("Encryption: AES-256 GCM Authenticated", fontFamily = FontFamily.Monospace, fontSize = 12.sp, color = NetworkGreen)
+                    Text("Encryption: AES-256-GCM (team mesh key)", fontFamily = FontFamily.Monospace, fontSize = 12.sp, color = NetworkGreen)
                 }
             },
             confirmButton = {

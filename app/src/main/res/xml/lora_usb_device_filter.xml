@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- USB serial chips used by common ESP32 + SX1262 LoRa boards (see firmware/lora_bridge) -->
+<resources>
+    <!-- Silicon Labs CP210x (Heltec WiFi LoRa 32 V3) -->
+    <usb-device vendor-id="4292" />
+    <!-- Espressif native USB CDC (ESP32-S3 boards) -->
+    <usb-device vendor-id="12346" />
+    <!-- WCH CH9102 (LilyGO T-Beam / T3S3, CDC-ACM mode) -->
+    <usb-device vendor-id="6790" product-id="21972" />
+    <!-- Raspberry Pi RP2040 CDC (Waveshare RP2040-LoRa) -->
+    <usb-device vendor-id="11914" />
+</resources>

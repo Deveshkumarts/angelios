@@ -30,7 +30,17 @@ venv/
 env/
 *.log
 
-# Keep only the primary production Angelios.apk; ignore intermediate duplicate build archives
+# Build outputs never go in git (distribute APKs via GitHub Releases). Angelios.apk can still sit
+# in the project root locally for INSTALL_APK_TO_PHONE.bat.
+*.apk
+*.aab
+
+# Release signing secrets
+keystore.properties
+*.jks
+*.keystore
+
+# Legacy names (covered by *.apk)
 Angelios-demo.apk
 Angelios-v2.3.apk
 iTANTRA-demo-runner.apk

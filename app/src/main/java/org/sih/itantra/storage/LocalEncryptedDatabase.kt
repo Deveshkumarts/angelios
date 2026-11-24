@@ -13,6 +13,8 @@ import org.sih.itantra.domain.model.Priority
 import org.sih.itantra.domain.model.TechnicalTelemetry
 import org.sih.itantra.domain.model.TransportType
 import java.util.concurrent.CopyOnWriteArrayList
+import org.sih.itantra.security.KeystoreVault
+import org.sih.itantra.security.MeshCrypto
 
 data class UserProfile(
     val username: String = "Operator",
@@ -28,6 +30,10 @@ data class UserProfile(
  * Guarantees zero reliance on cloud/Firebase databases.
  */
 class LocalEncryptedDatabase(private val context: Context) {
+
+    companion object {
+        const val MAX_STORED_MESSAGES = 1000
+    }
 
     private val inMemoryMessages = CopyOnWriteArrayList<ChatMessage>()
     private val _messagesFlow = MutableStateFlow<List<ChatMessage>>(emptyList())
@@ -94,68 +100,126 @@ class LocalEncryptedDatabase(private val context: Context) {
         return id
     }
 
+    // ------------------------------------------------------------------ persistence
+    // Message history is kept in an AES-256-GCM file whose key lives in the Android Keystore
+    // (KeystoreVault); it survives restarts and is unreadable if copied off the device.
+
+    private val messagesFile = java.io.File(context.filesDir, "messages.enc")
+    private val sosLogFile = java.io.File(context.filesDir, "sos_log.enc")
+    private val ioExecutor = java.util.concurrent.Executors.newSingleThreadExecutor()
+
     init {
-        seedSampleHistory()
+        loadMessages()
     }
 
-    private fun seedSampleHistory() {
-        val sample1 = ChatMessage(
-            senderId = "NODE_002",
-            senderName = "Forward Post Bravo",
-            receiverId = "LOCAL_NODE",
-            text = "Radio check, communication link established. Sector clear.",
-            reconstructedSpeechText = "Radio check, communication link established. Sector clear.",
-            priority = Priority.NORMAL,
-            packetType = PacketType.NORMAL_TEXT,
-            transport = TransportType.WIFI_DIRECT,
-            language = Language.ENGLISH,
-            status = DeliveryStatus.RECEIVED,
-            isIncoming = true,
-            timestamp = System.currentTimeMillis() - 180000,
-            telemetry = TechnicalTelemetry(
-                sttDurationMs = 110L,
-                semanticDurationMs = 28L,
-                compressionDurationMs = 10L,
-                networkTransitDurationMs = 62L,
-                payloadBytes = 56,
-                rawEquivalentBytes = 64000
-            )
-        )
-
-        val sample2 = ChatMessage(
-            senderId = "LOCAL_NODE",
-            senderName = "Commander (You)",
-            receiverId = "NODE_002",
-            text = "चिकित्सा दल रवाना हो चुका है। मार्ग साफ़ है।",
-            reconstructedSpeechText = "चिकित्सा दल रवाना हो चुका है। मार्ग साफ़ है।",
-            priority = Priority.IMPORTANT,
-            packetType = PacketType.COMPRESSED_TEXT,
-            transport = TransportType.BLE,
-            language = Language.HINDI,
-            status = DeliveryStatus.DELIVERED_ACK,
-            isIncoming = false,
-            timestamp = System.currentTimeMillis() - 95000,
-            telemetry = TechnicalTelemetry(
-                sttDurationMs = 125L,
-                semanticDurationMs = 32L,
-                compressionDurationMs = 15L,
-                networkTransitDurationMs = 95L,
-                payloadBytes = 64,
-                rawEquivalentBytes = 64000
-            )
-        )
-
-        inMemoryMessages.add(sample1)
-        inMemoryMessages.add(sample2)
-        _messagesFlow.value = inMemoryMessages.toList()
-
-        // Real mesh mode: Nodes list is populated ONLY by actual peers running the iTANTRA app!
-        _nodesFlow.value = inMemoryNodes.toList()
+    private fun loadMessages() {
+        try {
+            if (!messagesFile.exists()) return
+            val json = KeystoreVault.decryptString(messagesFile.readBytes()) ?: return
+            val arr = org.json.JSONArray(json)
+            for (i in 0 until arr.length()) {
+                MessageCodec.fromJson(arr.getJSONObject(i))?.let { inMemoryMessages.add(it) }
+            }
+            _messagesFlow.value = inMemoryMessages.toList()
+        } catch (t: Throwable) {
+            android.util.Log.w("LocalEncryptedDatabase", "Could not load message history: ${t.message}")
+        }
     }
 
+    private fun persistMessages() {
+        val snapshot = inMemoryMessages.take(MAX_STORED_MESSAGES)
+        ioExecutor.execute {
+            try {
+                val arr = org.json.JSONArray()
+                snapshot.forEach { arr.put(MessageCodec.toJson(it)) }
+                writeAtomically(messagesFile, KeystoreVault.encryptString(arr.toString()))
+            } catch (t: Throwable) {
+                android.util.Log.w("LocalEncryptedDatabase", "Could not persist messages: ${t.message}")
+            }
+        }
+    }
+
+    private fun writeAtomically(target: java.io.File, bytes: ByteArray) {
+        val tmp = java.io.File(target.parentFile, target.name + ".tmp")
+        tmp.writeBytes(bytes)
+        if (!tmp.renameTo(target)) { target.delete(); tmp.renameTo(target) }
+    }
+
+    fun clearMessages() {
+        inMemoryMessages.clear()
+        _messagesFlow.value = emptyList()
+        persistMessages()
+    }
+
+    // ------------------------------------------------------------------ SOS audit log
+
+    fun loadSosLogs(): List<org.sih.itantra.emergency.SosLogEvent> = try {
+        if (!sosLogFile.exists()) emptyList() else {
+            val arr = org.json.JSONArray(KeystoreVault.decryptString(sosLogFile.readBytes()) ?: "[]")
+            (0 until arr.length()).map { i ->
+                val o = arr.getJSONObject(i)
+                org.sih.itantra.emergency.SosLogEvent(
+                    id = o.getString("id"),
+                    timestamp = o.getLong("ts"),
+                    triggerSource = o.getString("src"),
+                    deliveredCount = o.optInt("delivered", 0),
+                    nearbyDevices = o.optInt("nearby", 0),
+                    latitude = if (o.has("lat")) o.getDouble("lat") else null,
+                    longitude = if (o.has("lon")) o.getDouble("lon") else null
+                )
+            }
+        }
+    } catch (t: Throwable) {
+        emptyList()
+    }
+
+    fun saveSosLogs(logs: List<org.sih.itantra.emergency.SosLogEvent>) {
+        val snapshot = logs.take(200)
+        ioExecutor.execute {
+            try {
+                val arr = org.json.JSONArray()
+                snapshot.forEach { l ->
+                    arr.put(org.json.JSONObject().apply {
+                        put("id", l.id); put("ts", l.timestamp); put("src", l.triggerSource)
+                        put("delivered", l.deliveredCount); put("nearby", l.nearbyDevices)
+                        l.latitude?.let { put("lat", it) }; l.longitude?.let { put("lon", it) }
+                    })
+                }
+                writeAtomically(sosLogFile, KeystoreVault.encryptString(arr.toString()))
+            } catch (t: Throwable) {
+                android.util.Log.w("LocalEncryptedDatabase", "Could not persist SOS log: ${t.message}")
+            }
+        }
+    }
+
+    // ------------------------------------------------------------------ mesh passphrase
+
+    /** Team mesh passphrase, stored encrypted by the Keystore. Falls back to the open default. */
+    fun getMeshPassphrase(): String {
+        val prefs = context.getSharedPreferences("itantra_prefs", Context.MODE_PRIVATE)
+        val enc = prefs.getString("mesh_passphrase_enc", null) ?: return MeshCrypto.DEFAULT_PASSPHRASE
+        return try {
+            KeystoreVault.decryptString(android.util.Base64.decode(enc, android.util.Base64.NO_WRAP))
+                ?: MeshCrypto.DEFAULT_PASSPHRASE
+        } catch (_: Throwable) {
+            MeshCrypto.DEFAULT_PASSPHRASE
+        }
+    }
+
+    fun setMeshPassphrase(passphrase: String) {
+        val enc = android.util.Base64.encodeToString(KeystoreVault.encryptString(passphrase), android.util.Base64.NO_WRAP)
+        context.getSharedPreferences("itantra_prefs", Context.MODE_PRIVATE).edit()
+            .putString("mesh_passphrase_enc", enc).apply()
+    }
+
+    @Synchronized
     fun saveMessage(message: ChatMessage) {
+        // An incoming retransmission of a message we already stored must not appear twice
+        if (inMemoryMessages.any { it.id == message.id }) return
         inMemoryMessages.add(0, message) // Most recent first
+        while (inMemoryMessages.size > MAX_STORED_MESSAGES) inMemoryMessages.removeAt(inMemoryMessages.size - 1)
         _messagesFlow.value = inMemoryMessages.toList()
+        persistMessages()
     }
 
     @Synchronized
@@ -165,6 +229,7 @@ class LocalEncryptedDatabase(private val context: Context) {
             val updated = inMemoryMessages[index].copy(status = status)
             inMemoryMessages[index] = updated
             _messagesFlow.value = inMemoryMessages.toList()
+            persistMessages()
         }
     }
 
@@ -192,6 +257,12 @@ class LocalEncryptedDatabase(private val context: Context) {
         if (changed) {
             _nodesFlow.value = inMemoryNodes.toList()
         }
+    }
+
+    @Synchronized
+    fun clearNodes() {
+        inMemoryNodes.clear()
+        _nodesFlow.value = emptyList()
     }
 
     fun removeNode(nodeId: String) {

@@ -48,6 +48,8 @@ def download_models(hf_token: str = None):
     models = [
         {"repo_id": "ai4bharat/indic-conformer-600m-multilingual", "desc": "IndicConformer 600M ASR (~2.4 GB)"},
         {"repo_id": "ai4bharat/indictrans2-en-indic-dist-200M", "desc": "IndicTrans2 200M Translation (~800 MB)"},
+        {"repo_id": "ai4bharat/indictrans2-indic-en-dist-200M", "desc": "IndicTrans2 200M Indic->English (~800 MB)"},
+        {"repo_id": "ai4bharat/indictrans2-indic-indic-dist-320M", "desc": "IndicTrans2 320M Indic->Indic (~1.3 GB)"},
         {"repo_id": "ai4bharat/IndicF5", "desc": "IndicF5 400M Diffusion TTS (~1.6 GB)"}
     ]
 

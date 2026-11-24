@@ -39,6 +39,13 @@ import org.sih.itantra.network.mesh.MeshRouter
 import org.sih.itantra.network.monitor.NetworkQualityMonitor
 import org.sih.itantra.network.transport.TransportManager
 import org.sih.itantra.storage.LocalEncryptedDatabase
+import org.sih.itantra.emergency.LocationProvider
+import org.sih.itantra.network.mesh.needsAck
+import org.sih.itantra.network.transport.BluetoothTransport
+import org.sih.itantra.network.transport.LoraTransport
+import org.sih.itantra.network.transport.ReceivedPacket
+import org.sih.itantra.security.MeshCrypto
+import java.util.concurrent.ConcurrentHashMap
 
 /** Fired for every incoming SOS/EMERGENCY packet from another mesh node, so a foreground service
  *  (or any other listener) can raise a system notification even while the app has no visible UI. */
@@ -68,7 +75,8 @@ class CommunicationRepository(
     val database: LocalEncryptedDatabase = LocalEncryptedDatabase(context),
     val transportManager: TransportManager = TransportManager(context),
     val speechManager: org.sih.itantra.ml.stt.AndroidSpeechManager = org.sih.itantra.ml.stt.AndroidSpeechManager(context),
-    val translatorEngine: org.sih.itantra.ml.translation.OfflineTranslatorEngine = org.sih.itantra.ml.translation.OfflineTranslatorEngine()
+    val translatorEngine: org.sih.itantra.ml.translation.OfflineTranslatorEngine = org.sih.itantra.ml.translation.OfflineTranslatorEngine(),
+    val locationProvider: LocationProvider = LocationProvider(context)
 ) {
     // SupervisorJob + handler: one failing background coroutine (discovery loop, packet handling,
     // model download...) must not cancel its siblings or take the whole app down.
@@ -81,7 +89,28 @@ class CommunicationRepository(
 
     private companion object {
         const val PEER_TIMEOUT_MS = 12_000L
+        const val ACK_TIMEOUT_MS = 2_500L
+        const val MAX_SEND_ATTEMPTS = 3
+        const val PING_INTERVAL_MS = 5_000L
+        const val LORA_BEACON_EVERY_N_TICKS = 10
     }
+
+    /** A message waiting for its ACK. [ackers] lets an SOS count each distinct peer once. */
+    private class PendingSend(
+        val packet: Packet,
+        val chatMessageId: String?,
+        val sosLogId: String?,
+        val firstSentAt: Long = System.currentTimeMillis()
+    ) {
+        @Volatile var lastSentAt: Long = firstSentAt
+        val ackers: MutableSet<String> = ConcurrentHashMap.newKeySet()
+    }
+    private val pendingAcks = ConcurrentHashMap<Long, PendingSend>()
+    private val pendingPings = ConcurrentHashMap<Long, Long>()
+
+    /** How (bearer + RSSI) each peer was last heard - real values for the device list and LQS. */
+    private val lastRx = ConcurrentHashMap<String, ReceivedPacket>()
+    private var discoveryTick = 0
 
     // Consumed by MeshForegroundService to raise a system notification for incoming SOS packets
     // even when no Activity/UI is on screen to show them.
@@ -177,9 +206,15 @@ class CommunicationRepository(
     }
 
     init {
+        // Team mesh key (passphrase kept encrypted by the Android Keystore) before any radio starts
+        MeshCrypto.setPassphrase(database.getMeshPassphrase())
+        emergencyManager.restoreLogs(database.loadSosLogs())
+        emergencyManager.logPersister = { database.saveSosLogs(it) }
+        locationProvider.requestFreshFix()
+
         translatorEngine.initContext(context)
         (transportManager.getTransport(TransportType.WIFI_DIRECT) as? org.sih.itantra.network.transport.WifiDirectTransport)?.localNodeId = localNodeId
-        networkMonitor.startMonitoring(scope)
+        networkMonitor.startMonitoring(scope) { currentRadioRssi() }
 
         // Real-time performance telemetry: periodic CPU/RAM/model-footprint sampling, plus live
         // STT latency/confidence recorded straight from the device's own speech recognizer.
@@ -224,8 +259,42 @@ class CommunicationRepository(
 
         // Connect raw transport feed to mesh router
         scope.launch {
-            transportManager.incomingPackets.collect { rawPacket ->
-                meshRouter.routeIncomingPacket(rawPacket)
+            transportManager.incomingPackets.collect { rx ->
+                val sender = rx.packet.senderId.trim()
+                if (!sender.equals(localNodeId.trim(), ignoreCase = true)) {
+                    lastRx[sender] = rx
+                    networkMonitor.setTransport(rx.transport)
+                }
+                meshRouter.routeIncomingPacket(rx.packet)
+            }
+        }
+
+        // A peer retransmitted something we already accepted => our ACK was lost; ACK it again.
+        scope.launch {
+            meshRouter.duplicateDeliveries.collect { dup ->
+                MeshCrypto.open(dup)?.let { sendAck(it) }
+            }
+        }
+
+        // Link latency/jitter probe: broadcast a HEARTBEAT ping; every peer answers with an ACK.
+        scope.launch {
+            while (isActive) {
+                delay(PING_INTERVAL_MS)
+                if (database.nodesFlow.value.isEmpty()) continue
+                try {
+                    val ping = MeshCrypto.seal(Packet(
+                        senderId = localNodeId,
+                        receiverId = "BRDCAST_",
+                        packetType = PacketType.HEARTBEAT,
+                        ttl = 1,
+                        payload = ByteArray(0)
+                    ))
+                    pendingPings[ping.messageId] = System.currentTimeMillis()
+                    pendingPings.entries.removeIf { System.currentTimeMillis() - it.value > 30_000 }
+                    transportManager.transmitPacket(ping)
+                } catch (t: Throwable) {
+                    android.util.Log.w("CommunicationRepo", "Ping failed: ${t.message}")
+                }
             }
         }
 
@@ -349,19 +418,19 @@ class CommunicationRepository(
                 _pttState.value = PttState.TRANSMITTING
                 val targetNodeId = _activeTargetNode.value?.id ?: "BRDCAST_"
                 val actualSourceLang = translatorEngine.detectScriptLanguage(textToUse) ?: _selectedLanguage.value
-                val packet = Packet(
+                val packet = MeshCrypto.seal(Packet(
                     senderId = meshRouter.localNodeId,
                     receiverId = targetNodeId,
                     languageId = actualSourceLang.id,
                     priority = Priority.NORMAL,
                     packetType = compResult.packetType,
                     payload = compResult.payload
-                )
+                ))
 
                 // 5. Mesh Queueing and Transmission
                 val txStart = System.currentTimeMillis()
                 meshRouter.enqueueOutgoing(packet)
-                val txSuccess = transportManager.transmitPacket(packet, linkMetrics.value.activeTransport)
+                val txSuccess = transportManager.transmitPacket(packet)
                 val txDuration = System.currentTimeMillis() - txStart
 
                 networkMonitor.recordPacketTransmission(txSuccess, txDuration)
@@ -388,7 +457,8 @@ class CommunicationRepository(
                     packetType = compResult.packetType,
                     transport = linkMetrics.value.activeTransport,
                     language = _selectedLanguage.value,
-                    status = if (txSuccess) DeliveryStatus.DELIVERED_ACK else DeliveryStatus.FAILED,
+                    // DELIVERED_ACK is only set once a peer actually acknowledges (see trackDelivery)
+                    status = if (txSuccess) DeliveryStatus.TRANSMITTING else DeliveryStatus.FAILED,
                     isIncoming = false,
                     timestamp = System.currentTimeMillis(),
                     telemetry = telemetry
@@ -399,10 +469,11 @@ class CommunicationRepository(
                 _pttState.value = if (semantic.priority == Priority.EMERGENCY) {
                     PttState.EMERGENCY
                 } else if (txSuccess) {
-                    PttState.DELIVERED
+                    PttState.TRANSMITTING
                 } else {
                     PttState.FAILED
                 }
+                if (txSuccess) trackDelivery(packet, chatMessageId = chatMessage.id, sosLogId = null)
             } catch (t: Throwable) {
                 android.util.Log.e("CommunicationRepository", "PTT capture and send failed: ${t.message}", t)
                 _pttState.value = PttState.FAILED
@@ -416,9 +487,15 @@ class CommunicationRepository(
      * Receiver Pipeline:
      * Receives packet -> verifies CRC16 -> decompresses -> reconstructs text in receiver language -> synthesizes TTS
      */
-    private fun handleDeliveredPacket(packet: Packet) {
+    private fun handleDeliveredPacket(wirePacket: Packet) {
         val packetReceivedAt = System.currentTimeMillis()
         try {
+            // Authenticate + decrypt with the team mesh key. Packets from another team (different
+            // passphrase) or tampered in transit fail GCM authentication and are dropped here.
+            val packet = MeshCrypto.open(wirePacket) ?: run {
+                android.util.Log.d("CommunicationRepository", "Dropped packet from ${wirePacket.senderId}: not decryptable with this mesh key")
+                return
+            }
             // CRITICAL CHECK: Ignore packets sent by ourselves!
             // The sender speaks into their mic; only the opposite recipient should hear the TTS playback!
             // Also ensures local phone is never registered as a peer on its own radar.
@@ -429,8 +506,20 @@ class CommunicationRepository(
                 return
             }
 
+            val rx = lastRx[packet.senderId.trim()]
+
+            if (packet.packetType == PacketType.ACK) {
+                handleAck(packet)
+                return
+            }
+            if (packet.packetType == PacketType.HEARTBEAT) {
+                sendAck(packet) // ping reply
+                return
+            }
+
             // Handle discovery beacon packets without producing chat/TTS
-            if (packet.packetType == PacketType.HELLO || packet.packetType == PacketType.HEARTBEAT) {
+            if (packet.packetType == PacketType.HELLO) {
+                networkMonitor.recordBeacon(packet.senderId.trim(), rx?.rssi)
                 var peerBattery = batteryManager.batteryLevel.value
                 val peerUsername = try {
                     val payloadStr = String(packet.payload, Charsets.UTF_8)
@@ -450,9 +539,9 @@ class CommunicationRepository(
                 val remoteNode = org.sih.itantra.domain.model.NetworkNode(
                     id = packet.senderId,
                     name = peerUsername,
-                    rssi = -55,
+                    rssi = rx?.rssi ?: currentRadioRssi() ?: -60,
                     batteryPct = peerBattery,
-                    transportType = TransportType.WIFI_DIRECT,
+                    transportType = rx?.transport ?: TransportType.WIFI_DIRECT,
                     hopCount = 1,
                     isDirectNeighbor = true
                 )
@@ -460,7 +549,12 @@ class CommunicationRepository(
                 return
             }
 
+            if (packet.packetType.needsAck()) sendAck(packet)
+
             val decompressed = compressor.decompress(packet.payload, packet.packetType, packet.language)
+            val locationSuffix = if (decompressed.latitude != null && decompressed.longitude != null) {
+                String.format(java.util.Locale.ROOT, "\nGPS %.5f, %.5f", decompressed.latitude, decompressed.longitude)
+            } else ""
             val isSos = packet.packetType == PacketType.SOS || packet.packetType == PacketType.EMERGENCY || packet.priority == Priority.EMERGENCY
 
             // Extract sender username from payload or known nodes
@@ -528,11 +622,11 @@ class CommunicationRepository(
                 senderId = packet.senderId,
                 senderName = senderDisplayName,
                 receiverId = packet.receiverId,
-                text = reconstructedText,
+                text = reconstructedText + locationSuffix,
                 reconstructedSpeechText = reconstructedText,
                 priority = packet.priority,
                 packetType = packet.packetType,
-                transport = linkMetrics.value.activeTransport,
+                transport = rx?.transport ?: linkMetrics.value.activeTransport,
                 language = _selectedLanguage.value,
                 status = DeliveryStatus.RECEIVED,
                 isIncoming = true,
@@ -546,7 +640,7 @@ class CommunicationRepository(
             database.saveMessage(incomingMessage)
 
             if (isSos) {
-                _sosAlerts.tryEmit(SosAlertEvent(senderId = packet.senderId, senderName = senderDisplayName, message = reconstructedText))
+                _sosAlerts.tryEmit(SosAlertEvent(senderId = packet.senderId, senderName = senderDisplayName, message = reconstructedText + locationSuffix))
             }
 
             // Automatically register incoming peer in discovered mesh nodes list using username and real battery
@@ -554,9 +648,9 @@ class CommunicationRepository(
             val remoteNode = org.sih.itantra.domain.model.NetworkNode(
                 id = packet.senderId,
                 name = senderDisplayName,
-                rssi = -62,
+                rssi = rx?.rssi ?: currentRadioRssi() ?: -60,
                 batteryPct = existingBattery,
-                transportType = linkMetrics.value.activeTransport,
+                transportType = rx?.transport ?: linkMetrics.value.activeTransport,
                 hopCount = 1,
                 isDirectNeighbor = true
             )
@@ -591,21 +685,122 @@ class CommunicationRepository(
     }
 
     /**
-     * Actively scans Wi-Fi network for connected peers running iTANTRA via UDP discovery beacon.
+     * Broadcasts an encrypted HELLO beacon so peers on the same mesh key can discover this node.
+     * Goes out over Wi-Fi and BLE every tick; over LoRa only every [LORA_BEACON_EVERY_N_TICKS] ticks
+     * to respect the narrow LoRa channel's duty cycle.
      */
     fun scanForConnectedDevices() {
         database.pruneStaleNodes(maxAgeMs = PEER_TIMEOUT_MS)
+        val includeLora = (discoveryTick++ % LORA_BEACON_EVERY_N_TICKS) == 0
         scope.launch {
-            val wifiTransport = transportManager.getTransport(TransportType.WIFI_DIRECT) as? org.sih.itantra.network.transport.WifiDirectTransport
-            wifiTransport?.let { wifi ->
-                val myUsername = userProfile.value.username
-                wifi.broadcastDiscoveryBeacon(localNodeId, myUsername, batteryManager.batteryLevel.value)
-            }
+            val myUsername = userProfile.value.username.replace("|", " ")
+            val beacon = MeshCrypto.seal(Packet(
+                senderId = localNodeId,
+                receiverId = "BRDCAST_",
+                packetType = PacketType.HELLO,
+                priority = Priority.NORMAL,
+                ttl = 1,
+                payload = "iTANTRA_PEER|$myUsername|${batteryManager.batteryLevel.value}".toByteArray(Charsets.UTF_8)
+            ))
+            transportManager.transmitPacket(beacon, TransportType.WIFI_DIRECT)
+            transportManager.transmitPacket(beacon, TransportType.BLE)
+            if (includeLora) transportManager.transmitPacket(beacon, TransportType.LORA)
         }
     }
 
+    // ------------------------------------------------------------------ delivery confirmation
+
+    private fun sendAck(original: Packet) {
+        scope.launch {
+            val ack = MeshCrypto.seal(Packet(
+                senderId = localNodeId,
+                receiverId = original.senderId.trim(),
+                priority = original.priority,
+                packetType = PacketType.ACK,
+                payload = java.nio.ByteBuffer.allocate(8).putLong(original.messageId).array()
+            ))
+            transportManager.transmitPacket(ack)
+        }
+    }
+
+    private fun handleAck(ack: Packet) {
+        if (ack.payload.size < 8) return
+        val ackedId = java.nio.ByteBuffer.wrap(ack.payload).long
+        val now = System.currentTimeMillis()
+
+        pendingPings[ackedId]?.let { sentAt -> networkMonitor.recordRoundTrip(now - sentAt) }
+
+        val pending = pendingAcks[ackedId] ?: return
+        val firstAckFromPeer = pending.ackers.add(ack.senderId.trim())
+        if (!firstAckFromPeer) return
+        networkMonitor.recordRoundTrip(now - pending.lastSentAt)
+        pending.chatMessageId?.let { database.updateMessageStatus(it, DeliveryStatus.DELIVERED_ACK) }
+        pending.sosLogId?.let { emergencyManager.recordDelivery(it) }
+        if (_pttState.value == PttState.TRANSMITTING) _pttState.value = PttState.DELIVERED
+    }
+
+    /**
+     * Waits for an ACK and retransmits (same message id, so receivers de-duplicate) up to
+     * [MAX_SEND_ATTEMPTS] times. Without any ACK the message is marked FAILED. SOS entries stay
+     * registered for a while longer so every peer that answers is counted.
+     */
+    private fun trackDelivery(packet: Packet, chatMessageId: String?, sosLogId: String?) {
+        val pending = PendingSend(packet, chatMessageId, sosLogId)
+        pendingAcks[packet.messageId] = pending
+        scope.launch {
+            var attempt = 1
+            while (pending.ackers.isEmpty() && attempt < MAX_SEND_ATTEMPTS) {
+                delay(ACK_TIMEOUT_MS)
+                if (pending.ackers.isNotEmpty()) break
+                attempt++
+                chatMessageId?.let { database.updateMessageStatus(it, DeliveryStatus.RETRYING) }
+                pending.lastSentAt = System.currentTimeMillis()
+                transportManager.transmitPacket(packet)
+            }
+            if (pending.ackers.isEmpty()) delay(ACK_TIMEOUT_MS)
+            if (pending.ackers.isEmpty()) {
+                networkMonitor.recordPacketTransmission(false, 0)
+                chatMessageId?.let { database.updateMessageStatus(it, DeliveryStatus.FAILED) }
+                if (_pttState.value == PttState.TRANSMITTING) _pttState.value = PttState.FAILED
+            }
+            delay(if (sosLogId != null) 60_000L else 10_000L)
+            pendingAcks.remove(packet.messageId)
+        }
+    }
+
+    /** Signal strength of the radio actually in use: Wi-Fi association RSSI, else BLE, else LoRa. */
+    @Suppress("DEPRECATION")
+    private fun currentRadioRssi(): Int? {
+        val wifi = try {
+            (context.applicationContext.getSystemService(Context.WIFI_SERVICE) as? android.net.wifi.WifiManager)
+                ?.connectionInfo?.rssi?.takeIf { it in -126..-1 }
+        } catch (_: Throwable) { null }
+        if (wifi != null) return wifi
+        val ble = (transportManager.getTransport(TransportType.BLE) as? BluetoothTransport)?.bestPeerRssi()
+        if (ble != null) return ble
+        return (transportManager.getTransport(TransportType.LORA) as? LoraTransport)?.lastLinkRssi()
+    }
+
+    /** Changes the team mesh passphrase. Every device in the team must use the same one. */
+    fun setMeshPassphrase(passphrase: String) {
+        val p = passphrase.trim().ifBlank { MeshCrypto.DEFAULT_PASSPHRASE }
+        database.setMeshPassphrase(p)
+        MeshCrypto.setPassphrase(p)
+        database.clearNodes()
+    }
+
+    val isUsingDefaultMeshKey: Boolean get() = MeshCrypto.isUsingDefaultPassphrase
+
     fun triggerEmergencySos(customDistressMessage: String = "") {
-        emergencyManager.triggerSos(source = "EMERGENCY_SCREEN", scope)
+        val fix = locationProvider.lastKnownLocation()
+        locationProvider.requestFreshFix()
+        val sosLogId = emergencyManager.triggerSos(
+            source = "EMERGENCY_SCREEN",
+            coroutineScope = scope,
+            nearbyDevices = database.nodesFlow.value.size,
+            latitude = fix?.latitude,
+            longitude = fix?.longitude
+        )
         val myUsername = userProfile.value.username.ifBlank { "Operator_${localNodeId.takeLast(4)}" }
         val msgToSend = if (customDistressMessage.isNotBlank()) customDistressMessage else myUsername
 
@@ -623,11 +818,9 @@ class CommunicationRepository(
             org.sih.itantra.domain.model.LinkQuality.EMERGENCY,
             Priority.EMERGENCY
         )
-        val basePayload = compResult.payload
-        val usernameBytes = myUsername.toByteArray(Charsets.UTF_8)
-        val sosPayload = ByteArray(basePayload.size + usernameBytes.size)
-        System.arraycopy(basePayload, 0, sosPayload, 0, basePayload.size)
-        System.arraycopy(usernameBytes, 0, sosPayload, basePayload.size, usernameBytes.size)
+        // [12B beacon][optional 9B GPS block][sender name] - SOS stays plaintext so any rescuer hears it
+        val locationBlock = fix?.let { compressor.encodeSosLocation(it.latitude, it.longitude) } ?: ByteArray(0)
+        val sosPayload = compResult.payload + locationBlock + myUsername.toByteArray(Charsets.UTF_8)
 
         val sosPacket = Packet(
             senderId = meshRouter.localNodeId,
@@ -639,7 +832,9 @@ class CommunicationRepository(
         )
         scope.launch {
             meshRouter.enqueueOutgoing(sosPacket)
-            transportManager.transmitPacket(sosPacket)
+            if (transportManager.transmitPacket(sosPacket)) {
+                trackDelivery(sosPacket, chatMessageId = null, sosLogId = sosLogId)
+            }
         }
     }
 

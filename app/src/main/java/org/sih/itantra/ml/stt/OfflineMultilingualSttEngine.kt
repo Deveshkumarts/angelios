@@ -5,9 +5,12 @@ import org.sih.itantra.domain.model.Language
 import kotlin.math.abs
 
 /**
- * On-device Offline Multilingual Speech Recognition Engine.
- * Supports 10 Indian languages without internet connectivity.
- * Implements acoustic energy profiling and offline vocabulary matching.
+ * Transcript stage of the pipeline.
+ *
+ * Acoustic recognition itself is done by [AndroidSpeechManager] (on-device recognizer on Android 12+,
+ * otherwise the system recognizer with EXTRA_PREFER_OFFLINE). This class only wraps the recognised
+ * text into an [SttResult]; [transcribe] on raw PCM deliberately returns an empty transcript rather
+ * than inventing one. The phrasebook below is the canonical test vocabulary.
  */
 class OfflineMultilingualSttEngine : SpeechRecognizer {
 

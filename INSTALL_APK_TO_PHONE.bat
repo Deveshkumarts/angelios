@@ -14,8 +14,16 @@ echo Checking for connected devices...
 %ADB% devices
 
 echo.
-echo Installing Angelios.apk...
-%ADB% install -r "%~dp0Angelios.apk"
+rem Prefer a freshly built APK; fall back to a local Angelios.apk (no longer stored in git)
+set APK=%~dp0app\build\outputs\apk\debug\app-debug.apk
+if not exist "%APK%" set APK=%~dp0Angelios.apk
+if not exist "%APK%" (
+    echo Error: no APK found. Build one first:  gradlew.bat assembleDebug
+    pause
+    exit /b 1
+)
+echo Installing %APK%...
+%ADB% install -r "%APK%"
 
 if %ERRORLEVEL% EQU 0 (
     echo.

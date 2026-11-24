@@ -45,7 +45,24 @@ LANGUAGE_ISO_MAP = {
     "mr": {"name": "Marathi", "code_asr": "mr", "code_mt": "mar_Deva", "code_tts": "mr"},
     "gu": {"name": "Gujarati", "code_asr": "gu", "code_mt": "guj_Gujr", "code_tts": "gu"},
     "pa": {"name": "Punjabi", "code_asr": "pa", "code_mt": "pan_Guru", "code_tts": "pa"},
+    "or": {"name": "Odia", "code_asr": "or", "code_mt": "ory_Orya", "code_tts": "or"},
 }
+
+# FLORES-200 tag (what the Android app sends, e.g. "tam_Taml") -> ISO code used above
+FLORES_TO_ISO = {v["code_mt"]: k for k, v in LANGUAGE_ISO_MAP.items()}
+
+
+def normalize_lang(code: str) -> str:
+    """Accepts 'ta', 'tam_Taml' or 'Tamil' and returns the ISO code ('ta')."""
+    c = (code or "").strip()
+    if c in LANGUAGE_ISO_MAP:
+        return c
+    if c in FLORES_TO_ISO:
+        return FLORES_TO_ISO[c]
+    for iso, meta in LANGUAGE_ISO_MAP.items():
+        if meta["name"].lower() == c.lower():
+            return iso
+    return c
 
 def load_audio(path: str) -> Tuple[torch.Tensor, int]:
     """Loads audio from WAV file supporting both torchaudio and standard python wave."""
@@ -181,97 +198,98 @@ class IndicConformerASR:
 
 class IndicTranslatorMT:
     """
-    Component 3: AI4Bharat IndicTrans2 Machine Translation Engine
-    Translates from English to 22 Indian languages or between any Indian language pair.
+    Component 3: AI4Bharat IndicTrans2 Machine Translation Engine.
+
+    IndicTrans2 ships one model per direction, so each is loaded lazily on first use:
+      en    -> indic : ai4bharat/indictrans2-en-indic-dist-200M
+      indic -> en    : ai4bharat/indictrans2-indic-en-dist-200M
+      indic -> indic : ai4bharat/indictrans2-indic-indic-dist-320M
+    Pre/post-processing uses IndicTransToolkit's IndicProcessor when installed (strongly recommended,
+    it normalises input and restores native script); without it the raw model output is returned.
+
+    translate() returns None when no model can serve the request. It never invents a translation;
+    the phone then falls back to its on-device translator.
     """
-    def __init__(self, model_id: str = "ai4bharat/indictrans2-en-indic-dist-200M"):
-        self.model_id = model_id
-        print(f"[*] Loading IndicTrans2 Translation Engine from {model_id}...")
+
+    MODEL_IDS = {
+        "en-indic": "ai4bharat/indictrans2-en-indic-dist-200M",
+        "indic-en": "ai4bharat/indictrans2-indic-en-dist-200M",
+        "indic-indic": "ai4bharat/indictrans2-indic-indic-dist-320M",
+    }
+
+    def __init__(self, preload: str = "en-indic"):
+        self._models: Dict[str, tuple] = {}
+        self._failed: set = set()
+        try:
+            from IndicTransToolkit.processor import IndicProcessor  # type: ignore
+            self.processor = IndicProcessor(inference=True)
+        except Exception:
+            try:
+                from IndicTransToolkit import IndicProcessor  # type: ignore  (older toolkit layout)
+                self.processor = IndicProcessor(inference=True)
+            except Exception:
+                self.processor = None
+                print("[!] IndicTransToolkit not installed - translations will be lower quality. "
+                      "pip install IndicTransToolkit")
+        if preload:
+            self._load(preload)
+
+    @property
+    def is_loaded(self) -> bool:
+        return bool(self._models)
+
+    def _load(self, direction: str):
+        if direction in self._models:
+            return self._models[direction]
+        if direction in self._failed:
+            return None
+        model_id = self.MODEL_IDS[direction]
+        print(f"[*] Loading IndicTrans2 {direction} from {model_id}...")
         try:
             from transformers import AutoModelForSeq2SeqLM, AutoTokenizer
-            self.tokenizer = AutoTokenizer.from_pretrained(model_id, trust_remote_code=True)
-            self.model = AutoModelForSeq2SeqLM.from_pretrained(
-                model_id, 
-                trust_remote_code=True,
-                torch_dtype=DTYPE
-            ).to(DEVICE)
-            self.model.eval()
-            self.is_loaded = True
+            tok = AutoTokenizer.from_pretrained(model_id, trust_remote_code=True)
+            model = AutoModelForSeq2SeqLM.from_pretrained(model_id, trust_remote_code=True, torch_dtype=DTYPE).to(DEVICE)
+            model.eval()
+            self._models[direction] = (tok, model)
+            return self._models[direction]
         except Exception as e:
-            print(f"[!] Warning: IndicTrans2 remote load fallback: {e}")
-            self.is_loaded = False
+            print(f"[!] Could not load {model_id}: {e}")
+            self._failed.add(direction)
+            return None
 
-    def translate(self, text: str, src_lang: str, tgt_lang: str) -> str:
-        """
-        Translates text from src_lang (e.g. 'en') to tgt_lang (e.g. 'ta', 'hi').
-        """
+    @staticmethod
+    def _direction(src_lang: str, tgt_lang: str) -> str:
+        if src_lang == "en":
+            return "en-indic"
+        if tgt_lang == "en":
+            return "indic-en"
+        return "indic-indic"
+
+    def translate(self, text: str, src_lang: str, tgt_lang: str) -> Optional[str]:
+        """Translates text between ISO codes ('en', 'ta', 'hi', ...). Returns None if unavailable."""
         if not text.strip() or src_lang == tgt_lang:
             return text
+        if src_lang not in LANGUAGE_ISO_MAP or tgt_lang not in LANGUAGE_ISO_MAP:
+            return None
+        loaded = self._load(self._direction(src_lang, tgt_lang))
+        if loaded is None:
+            return None
+        tokenizer, model = loaded
+        src_tag = LANGUAGE_ISO_MAP[src_lang]["code_mt"]
+        tgt_tag = LANGUAGE_ISO_MAP[tgt_lang]["code_mt"]
 
-        if not self.is_loaded:
-            phrasebook = {
-                ("en", "ta"): {
-                    "can you hear me": "நான் பேசுவது கேட்கிறதா?",
-                    "we need food and water": "எங்களுக்கு குடிநீர் மற்றும் உணவு தேவைப்படுகிறது",
-                    "the road is blocked do not come this way": "சாலை அடைக்கப்பட்டுள்ளது, இந்த வழியில் யாரும் வர வேண்டாம்",
-                    "we are safe": "நாங்கள் பாதுகாப்பாக இருக்கிறோம்",
-                    "medical team needed": "மருத்துவக் குழு மற்றும் மருத்துவர் தேவை",
-                    "where are you": "நீங்கள் எங்கே இருக்கிறீர்கள்?",
-                    "we are coming to help": "நாங்கள் உங்களுக்கு உதவ வருகிறோம்",
-                    "roger that": "புரிந்தது, செய்தி உறுதி செய்யப்பட்டது"
-                },
-                ("en", "hi"): {
-                    "can you hear me": "क्या आप मुझे सुन सकते हैं?",
-                    "we need food and water": "हमें भोजन और पानी की आवश्यकता है",
-                    "the road is blocked do not come this way": "सड़क अवरुद्ध है, इस तरफ न आएं",
-                    "we are safe": "हम सुरक्षित हैं",
-                    "medical team needed": "चिकित्सा दल की तत्काल आवश्यकता है",
-                    "where are you": "आप कहाँ हैं?",
-                    "we are coming to help": "हम मदद के लिए आ रहे हैं",
-                    "roger that": "समझ गया, आदेश की पुष्टि हुई"
-                }
-            }
-            cleaned = text.lower().strip().rstrip(".?!")
-            match = phrasebook.get((src_lang, tgt_lang), {}).get(cleaned)
-            if match:
-                return match
-            if tgt_lang == "ta":
-                return f"செய்தி பெறப்பட்டது: {text}"
-            elif tgt_lang == "hi":
-                return f"संदेश प्राप्त हुआ: {text}"
-            return text
-
-        src_tag = LANGUAGE_ISO_MAP.get(src_lang, {}).get("code_mt", "eng_Latn")
-        tgt_tag = LANGUAGE_ISO_MAP.get(tgt_lang, {}).get("code_mt", "tam_Taml")
-        
-        # IndicTrans2 expects format: "<src_lang> <tgt_lang> <text>"
-        prompt = f"{src_tag} {tgt_tag} {text}"
-        inputs = self.tokenizer(prompt, return_tensors="pt").to(DEVICE)
+        if self.processor is not None:
+            batch = self.processor.preprocess_batch([text], src_lang=src_tag, tgt_lang=tgt_tag)
+        else:
+            batch = [f"{src_tag} {tgt_tag} {text}"]
+        inputs = tokenizer(batch, truncation=True, padding="longest", return_tensors="pt").to(DEVICE)
         with torch.no_grad():
-            outputs = self.model.generate(**inputs, max_length=256, num_beams=4, use_cache=False)
-        raw_output = self.tokenizer.decode(outputs[0], skip_special_tokens=True).strip()
-
-        # Map to native script if translated into Dravidian/Eastern/Western Indic languages
-        script_map = {
-            "ta": "TAMIL",
-            "te": "TELUGU",
-            "kn": "KANNADA",
-            "ml": "MALAYALAM",
-            "bn": "BENGALI",
-            "gu": "GUJARATI",
-            "pa": "GURMUKHI",
-            "or": "ORIYA"
-        }
-        if tgt_lang in script_map:
-            try:
-                from indic_transliteration import sanscript
-                from indic_transliteration.sanscript import transliterate
-                target_scheme = getattr(sanscript, script_map[tgt_lang], None)
-                if target_scheme:
-                    return transliterate(raw_output, sanscript.DEVANAGARI, target_scheme)
-            except Exception:
-                pass
-        return raw_output
+            outputs = model.generate(**inputs, max_length=256, num_beams=4, use_cache=True)
+        decoded = tokenizer.batch_decode(outputs, skip_special_tokens=True, clean_up_tokenization_spaces=True)
+        if self.processor is not None:
+            decoded = self.processor.postprocess_batch(decoded, lang=tgt_tag)
+        result = decoded[0].strip() if decoded else ""
+        return result or None
 
 
 class IndicF5TTS:
@@ -351,6 +369,8 @@ class IndicSpeechToSpeechPipeline:
 
         mt_start = time.perf_counter()
         translated_text = self.mt.translate(transcript, src_lang=source_language, tgt_lang=target_language)
+        if translated_text is None:
+            raise RuntimeError(f"No IndicTrans2 model available for {source_language}->{target_language}")
         timings["mt_ms"] = (time.perf_counter() - mt_start) * 1000
 
         tts_start = time.perf_counter()

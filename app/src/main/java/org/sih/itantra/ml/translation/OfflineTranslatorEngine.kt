@@ -84,7 +84,8 @@ data class DownloadedLanguagePack(
  */
 class OfflineTranslatorEngine {
 
-    var edgeServerHost: String? = "192.168.137.143"
+    // Set from the app's edge-server settings, or discovered via the Wi-Fi gateway / common hotspot IPs.
+    var edgeServerHost: String? = null
     var edgeServerPort: Int = 5000
     var isEdgeServerActive: Boolean = false
 
@@ -93,6 +94,9 @@ class OfflineTranslatorEngine {
 
     fun initContext(context: android.content.Context) {
         this.appContext = context.applicationContext
+        val prefs = context.getSharedPreferences("itantra_prefs", android.content.Context.MODE_PRIVATE)
+        prefs.getString("edge_server_host", null)?.let { edgeServerHost = it }
+        edgeServerPort = prefs.getInt("edge_server_port", edgeServerPort)
         loadCachedPacks()
     }
 
@@ -176,8 +180,6 @@ class OfflineTranslatorEngine {
             edgeServerHost,
             getDetectedGatewayHost(),
             "192.168.137.1",
-            "192.168.0.105",
-            "10.10.10.49",
             "127.0.0.1"
         ).distinct()
         val port = edgeServerPort
@@ -448,6 +450,8 @@ class OfflineTranslatorEngine {
         val port = if (parts.size > 1) parts[1].toIntOrNull() ?: 5000 else 5000
         edgeServerHost = host
         edgeServerPort = port
+        appContext?.getSharedPreferences("itantra_prefs", android.content.Context.MODE_PRIVATE)?.edit()
+            ?.putString("edge_server_host", host)?.putInt("edge_server_port", port)?.apply()
         checkEdgeServerConnection(callback)
     }
 
@@ -1032,7 +1036,11 @@ class OfflineTranslatorEngine {
                     } catch (_: Exception) {}
                 }
 
-                val fastCandidates = listOf("192.168.137.1", "192.168.43.1", "192.168.1.1", "10.10.10.28", "127.0.0.1")
+                // Wi-Fi gateway first (laptop hotspot), then default hotspot addresses (Windows, Android,
+                // Wi-Fi Direct group owner) and the Android-emulator host alias.
+                val fastCandidates = listOfNotNull(
+                    getDetectedGatewayHost(), "192.168.137.1", "192.168.43.1", "192.168.49.1", "192.168.1.1", "10.0.2.2"
+                ).distinct()
                 for (host in fastCandidates) {
                     try {
                         val url = java.net.URL("http://$host:5000/api/status")

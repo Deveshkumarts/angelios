@@ -2,6 +2,7 @@ package org.sih.itantra.ml.stt
 
 import android.content.Context
 import android.content.Intent
+import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -54,6 +55,10 @@ class AndroidSpeechManager(private val context: Context) {
      *  device/OEM recognizer provides one (also real - never fabricated; null when absent). */
     var onSttCompleted: ((latencyMs: Long, confidencePct: Float?) -> Unit)? = null
 
+    @Volatile private var useOnDeviceRecognizer = true
+    @Volatile var usingOnDevice = false
+        private set
+
     fun isAvailable(): Boolean = SpeechRecognizer.isRecognitionAvailable(context)
 
     fun startListening(language: Language) {
@@ -65,7 +70,19 @@ class AndroidSpeechManager(private val context: Context) {
                 }
 
                 if (recognizer == null) {
-                    recognizer = SpeechRecognizer.createSpeechRecognizer(context)
+                    // Offline-first: Android 12+ ships an on-device recognizer that never touches
+                    // the network. Fall back to the default service (asked to prefer offline models,
+                    // which works once the language pack is downloaded in Google's speech settings).
+                    recognizer = if (useOnDeviceRecognizer && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S &&
+                        SpeechRecognizer.isOnDeviceRecognitionAvailable(context)
+                    ) {
+                        usingOnDevice = true
+                        SpeechRecognizer.createOnDeviceSpeechRecognizer(context)
+                    } else {
+                        usingOnDevice = false
+                        SpeechRecognizer.createSpeechRecognizer(context)
+                    }
+                    Log.i(TAG, "Speech recognizer created (on-device=$usingOnDevice)")
                 }
 
                 val bcp47 = when (language) {
@@ -100,6 +117,7 @@ class AndroidSpeechManager(private val context: Context) {
                     putExtra(RecognizerIntent.EXTRA_CALLING_PACKAGE, context.packageName)
                     putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
                     putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 5)
+                    putExtra(RecognizerIntent.EXTRA_PREFER_OFFLINE, true)
                 }
 
                 recognizer?.setRecognitionListener(object : RecognitionListener {
@@ -135,6 +153,12 @@ class AndroidSpeechManager(private val context: Context) {
 
                     override fun onError(error: Int) {
                         Log.w(TAG, "SpeechRecognizer onError: $error")
+                        // On-device model lacks this language (ERROR_LANGUAGE_NOT_SUPPORTED=12 /
+                        // ERROR_LANGUAGE_UNAVAILABLE=13): use the regular offline-preferring service next time.
+                        if (usingOnDevice && (error == 12 || error == 13)) {
+                            useOnDeviceRecognizer = false
+                            mainHandler.post { try { recognizer?.destroy() } catch (_: Throwable) {}; recognizer = null }
+                        }
                         _isListening.value = false
                         _audioRms.value = 0f
                         val fallback = if (lastRecognizedText.isNotBlank()) lastRecognizedText else _liveTranscript.value

@@ -20,7 +20,7 @@ class MeshRouter(
     private val forwardPacketHandler: (suspend (Packet) -> Boolean)? = null
 ) {
     // Sliding window of processed message IDs to prevent loops/duplicate broadcasts
-    private val seenMessageCache = ConcurrentHashMap<Long, Long>()
+    private val seenMessageCache = ConcurrentHashMap<String, Long>()
 
     // Priority Queue for Outbound Transmissions
     private val priorityOutbox = PriorityBlockingQueue<PrioritizedPacket>(32) { a, b ->
@@ -42,12 +42,10 @@ class MeshRouter(
         val enqueuedTime: Long = System.currentTimeMillis()
     )
 
-    init {
-        // Seed default local topology for tactical mesh operation
-        registerNeighbor(NetworkNode("NODE_BRAVO_02", "Relay Bravo", -64, 92, TransportType.WIFI_DIRECT, 1))
-        registerNeighbor(NetworkNode("NODE_CHARLIE_03", "Base Camp Alpha", -78, 74, TransportType.BLE, 2))
-        registerNeighbor(NetworkNode("NODE_DELTA_04", "Field Squad 4", -89, 58, TransportType.LORA, 3))
-    }
+    // Re-deliveries of a message this node already accepted. The sender is retransmitting because our
+    // ACK was lost, so the repository re-sends the ACK without processing the message twice.
+    private val _duplicateDeliveries = MutableSharedFlow<Packet>(extraBufferCapacity = 32)
+    val duplicateDeliveries: SharedFlow<Packet> = _duplicateDeliveries.asSharedFlow()
 
     fun registerNeighbor(node: NetworkNode) {
         _neighbors[node.id] = node
@@ -58,7 +56,7 @@ class MeshRouter(
      * Emergency packets immediately jump to the head of the queue.
      */
     fun enqueueOutgoing(packet: Packet): PrioritizedPacket {
-        seenMessageCache[packet.messageId] = System.currentTimeMillis()
+        seenMessageCache[dedupKey(packet)] = System.currentTimeMillis()
         val item = PrioritizedPacket(packet)
         priorityOutbox.offer(item)
         return item
@@ -80,17 +78,19 @@ class MeshRouter(
             return RouteAction.DROPPED_DUPLICATE
         }
 
-        // 1. Duplicate Suppression
-        if (seenMessageCache.containsKey(packet.messageId)) {
-            return RouteAction.DROPPED_DUPLICATE
-        }
-        seenMessageCache[packet.messageId] = System.currentTimeMillis()
-        pruneSeenCache()
-
-        // 2. Check if packet is destined for local node or broadcast
+        // 1. Check if packet is destined for local node or broadcast
         val isForMe = packet.receiverId.trim() == localNodeId ||
                 packet.receiverId.trim() == "BRDCAST_" ||
                 packet.receiverId.trim() == "BROADCAST"
+
+        // 2. Duplicate Suppression (keyed by sender + id so two nodes can never collide)
+        val key = dedupKey(packet)
+        if (seenMessageCache.containsKey(key)) {
+            if (isForMe && packet.packetType.needsAck()) _duplicateDeliveries.tryEmit(packet)
+            return RouteAction.DROPPED_DUPLICATE
+        }
+        seenMessageCache[key] = System.currentTimeMillis()
+        pruneSeenCache()
 
         if (isForMe) {
             _deliveredPackets.tryEmit(packet)
@@ -111,6 +111,8 @@ class MeshRouter(
 
         return if (isForMe) RouteAction.ACCEPTED_LOCAL else RouteAction.DROPPED_TTL_EXPIRED
     }
+
+    private fun dedupKey(p: Packet) = "${p.senderId.trim()}:${p.messageId}"
 
     private fun pruneSeenCache() {
         if (seenMessageCache.size > 2048) {
@@ -133,3 +135,11 @@ class MeshRouter(
         DROPPED_TTL_EXPIRED
     }
 }
+
+/** Content-bearing packets the receiver acknowledges; control traffic is never ACKed. */
+fun org.sih.itantra.domain.model.PacketType.needsAck(): Boolean = this !in setOf(
+    org.sih.itantra.domain.model.PacketType.ACK,
+    org.sih.itantra.domain.model.PacketType.NACK,
+    org.sih.itantra.domain.model.PacketType.HELLO,
+    org.sih.itantra.domain.model.PacketType.HEARTBEAT
+)

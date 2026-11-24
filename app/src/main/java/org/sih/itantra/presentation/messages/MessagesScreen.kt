@@ -60,7 +60,7 @@ fun MessagesScreen(repository: CommunicationRepository) {
                     color = TextWhite
                 )
                 Text(
-                    text = "AES-256 ENCRYPTED LOCAL LOGS",
+                    text = "KEYSTORE-ENCRYPTED LOCAL HISTORY",
                     fontFamily = FontFamily.Monospace,
                     fontSize = 10.sp,
                     color = SignalCyanBright

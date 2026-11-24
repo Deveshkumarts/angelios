@@ -1,6 +1,9 @@
 package org.sih.itantra.network.transport
 
 import android.content.Context
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
@@ -15,47 +18,45 @@ interface NetworkTransport {
     suspend fun sendPacket(packet: Packet, destinationAddress: String? = null): Boolean
 }
 
+/** A packet as it came off a radio, with the bearer it used and (if the radio reports it) its RSSI. */
+data class ReceivedPacket(
+    val packet: Packet,
+    val transport: TransportType,
+    val rssi: Int? = null
+)
+
 /**
- * TransportManager handles switching between BLE, Wi-Fi Direct, LoRa, and Loopback.
- * Dispatches incoming packets to the Mesh Router.
+ * TransportManager owns every bearer (Wi-Fi LAN/Direct, BLE, LoRa, Loopback).
+ *
+ * Outgoing packets are sent over **every available wireless bearer at once**: the mesh router's
+ * duplicate suppression makes this safe, and it means a message still gets through when one radio is
+ * blocked or out of range. A specific bearer can still be forced (tests, demo).
  */
 class TransportManager(
     private val context: Context,
     private val bluetoothTransport: BluetoothTransport = BluetoothTransport(context),
     private val wifiDirectTransport: WifiDirectTransport = WifiDirectTransport(context),
-    private val loraTransport: LoraTransport = LoraTransport(),
+    private val loraTransport: LoraTransport = LoraTransport(context),
     private val loopbackTransport: LoopbackTransport = LoopbackTransport()
 ) {
-    private val _incomingPackets = MutableSharedFlow<Packet>(extraBufferCapacity = 64)
-    val incomingPackets: SharedFlow<Packet> = _incomingPackets.asSharedFlow()
-
-    private var activeTransportType: TransportType = TransportType.WIFI_DIRECT
+    private val _incomingPackets = MutableSharedFlow<ReceivedPacket>(extraBufferCapacity = 128)
+    val incomingPackets: SharedFlow<ReceivedPacket> = _incomingPackets.asSharedFlow()
 
     init {
-        // Wire incoming packet feeds from all transports
-        loopbackTransport.onPacketReceived = { packet ->
-            _incomingPackets.tryEmit(packet)
-        }
-        wifiDirectTransport.onPacketReceived = { packet ->
-            _incomingPackets.tryEmit(packet)
-        }
-        bluetoothTransport.onPacketReceived = { packet ->
-            _incomingPackets.tryEmit(packet)
-        }
-        loraTransport.onPacketReceived = { packet ->
-            _incomingPackets.tryEmit(packet)
-        }
+        loopbackTransport.onPacketReceived = { _incomingPackets.tryEmit(ReceivedPacket(it, TransportType.LOOPBACK)) }
+        wifiDirectTransport.onPacketReceived = { _incomingPackets.tryEmit(ReceivedPacket(it, TransportType.WIFI_DIRECT)) }
+        bluetoothTransport.onPacketReceived = { packet, rssi -> _incomingPackets.tryEmit(ReceivedPacket(packet, TransportType.BLE, rssi)) }
+        loraTransport.onPacketReceived = { packet, rssi -> _incomingPackets.tryEmit(ReceivedPacket(packet, TransportType.LORA, rssi)) }
     }
 
-    fun setActiveTransport(type: TransportType) {
-        activeTransportType = type
-    }
+    private val wireless: List<NetworkTransport>
+        get() = listOf(wifiDirectTransport, bluetoothTransport, loraTransport)
 
-    fun getActiveTransport(): TransportType = activeTransportType
+    /** Bearers that are currently up and able to carry traffic. */
+    fun availableTransports(): List<TransportType> = wireless.filter { it.isAvailable }.map { it.transportType }
 
     suspend fun startAll() {
-        // Wi-Fi first (it is the transport that carries mesh discovery), and each transport is
-        // isolated so a failure in one can never prevent the others from starting.
+        // Each transport is isolated so a failure in one can never prevent the others from starting.
         val starters: List<Pair<String, suspend () -> Unit>> = listOf(
             "wifi" to { wifiDirectTransport.start() },
             "bluetooth" to { bluetoothTransport.start() },
@@ -72,19 +73,31 @@ class TransportManager(
     }
 
     suspend fun stopAll() {
-        bluetoothTransport.stop()
-        wifiDirectTransport.stop()
-        loraTransport.stop()
-        loopbackTransport.stop()
+        for (t in wireless + loopbackTransport) {
+            try { t.stop() } catch (_: Throwable) {}
+        }
     }
 
+    /**
+     * Sends [packet]. With no [preferredTransport] it goes out on every available wireless bearer and
+     * succeeds if at least one bearer accepted it.
+     */
     suspend fun transmitPacket(packet: Packet, preferredTransport: TransportType? = null): Boolean {
-        val targetTransport = preferredTransport ?: activeTransportType
-        return when (targetTransport) {
-            TransportType.WIFI_DIRECT -> wifiDirectTransport.sendPacket(packet)
-            TransportType.BLE -> bluetoothTransport.sendPacket(packet)
-            TransportType.LORA -> loraTransport.sendPacket(packet)
-            TransportType.LOOPBACK -> loopbackTransport.sendPacket(packet)
+        if (preferredTransport != null) {
+            val t = getTransport(preferredTransport)
+            return try { t.sendPacket(packet) } catch (_: Throwable) { false }
+        }
+        val targets = wireless.filter { it.isAvailable }
+        if (targets.isEmpty()) return false
+        return coroutineScope {
+            targets.map { t ->
+                async {
+                    try { t.sendPacket(packet) } catch (e: Throwable) {
+                        android.util.Log.w("TransportManager", "${t.transportType} send failed: ${e.message}")
+                        false
+                    }
+                }
+            }.awaitAll().any { it }
         }
     }
 

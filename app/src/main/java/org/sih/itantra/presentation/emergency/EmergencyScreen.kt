@@ -46,7 +46,8 @@ fun EmergencyScreen(repository: CommunicationRepository) {
     val sosLogs by repository.emergencyManager.sosLogs.collectAsState()
     val nodes by repository.nodes.collectAsState()
     val nearbyCount = nodes.size
-    val deliveredCount = if (isSosActive) nearbyCount else sosLogs.lastOrNull()?.deliveredCount ?: 0
+    // Real count of peers that ACKed the most recent SOS (logs are newest-first)
+    val deliveredCount = sosLogs.firstOrNull()?.deliveredCount ?: 0
 
     Column(
         modifier = Modifier
@@ -305,7 +306,8 @@ fun EmergencyScreen(repository: CommunicationRepository) {
                                             color = CyberNeonRedBright
                                         )
                                         Text(
-                                            text = "Source: ${log.triggerSource} • Delivered to ${log.deliveredCount} nodes",
+                                            text = "Source: ${log.triggerSource} • ACKed by ${log.deliveredCount}/${log.nearbyDevices} nodes" +
+                                                (if (log.latitude != null && log.longitude != null) String.format(java.util.Locale.ROOT, "\nGPS %.5f, %.5f", log.latitude, log.longitude) else "\nGPS: no fix"),
                                             fontFamily = FontFamily.Monospace,
                                             fontSize = 10.sp,
                                             color = CyberTextMuted

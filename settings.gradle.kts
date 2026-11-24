@@ -20,6 +20,5 @@ dependencyResolutionManagement {
 }
 
 rootProject.name = "Angelios"
-include(":core")
 include(":app")
 include(":demo")

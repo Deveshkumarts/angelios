@@ -1,9 +1,11 @@
 @echo off
-title iTANTRA - SIH-PS2-MODEL IndicTrans2 Edge Server
-cd /d " %~dp0SIH-PS2-MODEL-main\
+title iTANTRA - Edge AI Base Station (IndicTrans2 / IndicConformer / IndicF5)
+cd /d "%~dp0backend"
 echo ======================================================================
 echo iTANTRA: Tactical Mesh Walkie-Talkie Base Station AI Server
-echo Loading SIH-PS2-MODEL (IndicTrans2) on GPU/CUDA...
+echo Serving the app API on port 5000 (set ITANTRA_PORT to change)
+echo Phones on the same Wi-Fi / hotspot find it automatically via the gateway,
+echo or enter this PC's IP in the app's edge server settings.
 echo ======================================================================
-python app.py
+python edge_server.py
 pause

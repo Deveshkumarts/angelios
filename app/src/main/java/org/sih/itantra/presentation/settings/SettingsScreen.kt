@@ -15,6 +15,9 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
+import androidx.compose.material3.Button
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -36,6 +39,8 @@ fun SettingsScreen(repository: CommunicationRepository) {
 
     var autoAdaptiveCompression by remember { mutableStateOf(true) }
     var hardwareStrobeSos by remember { mutableStateOf(true) }
+    var passphraseInput by remember { mutableStateOf("") }
+    var usingDefaultKey by remember { mutableStateOf(repository.isUsingDefaultMeshKey) }
 
     Column(
         modifier = Modifier
@@ -116,12 +121,41 @@ fun SettingsScreen(repository: CommunicationRepository) {
                 .border(1.dp, BorderGlass, RoundedCornerShape(10.dp))
                 .padding(12.dp)
         ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Default.Lock, contentDescription = "Secure", tint = NetworkGreen, modifier = Modifier.size(24.dp))
-                Spacer(modifier = Modifier.width(10.dp))
-                Column {
-                    Text("AES-256 GCM Authenticated", fontFamily = FontFamily.Monospace, fontSize = 12.sp, fontWeight = FontWeight.Bold, color = TextWhite)
-                    Text("Local keys held in Android Keystore hardware module", fontFamily = FontFamily.SansSerif, fontSize = 11.sp, color = TextMuted)
+            Column {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.Lock, contentDescription = "Secure", tint = if (usingDefaultKey) WarningAmber else NetworkGreen, modifier = Modifier.size(24.dp))
+                    Spacer(modifier = Modifier.width(10.dp))
+                    Column {
+                        Text("Mesh: AES-256-GCM (team passphrase)", fontFamily = FontFamily.Monospace, fontSize = 12.sp, fontWeight = FontWeight.Bold, color = TextWhite)
+                        Text("Local history: AES-256-GCM, key in Android Keystore. SOS beacons stay unencrypted so any rescuer can hear them.", fontFamily = FontFamily.SansSerif, fontSize = 11.sp, color = TextMuted)
+                    }
+                }
+                if (usingDefaultKey) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text("Using the default open passphrase - any iTANTRA device can read your traffic. Set a team passphrase below.", fontFamily = FontFamily.SansSerif, fontSize = 11.sp, color = WarningAmber)
+                }
+                Spacer(modifier = Modifier.height(8.dp))
+                OutlinedTextField(
+                    value = passphraseInput,
+                    onValueChange = { passphraseInput = it },
+                    label = { Text("Team mesh passphrase (same on every device)") },
+                    singleLine = true,
+                    visualTransformation = PasswordVisualTransformation(),
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Spacer(modifier = Modifier.height(6.dp))
+                Button(
+                    onClick = {
+                        repository.setMeshPassphrase(passphraseInput)
+                        passphraseInput = ""
+                        usingDefaultKey = repository.isUsingDefaultMeshKey
+                    },
+                    enabled = passphraseInput.length >= 8 || passphraseInput.isEmpty()
+                ) {
+                    Text(if (passphraseInput.isEmpty()) "Reset to default" else "Apply passphrase")
+                }
+                if (passphraseInput.isNotEmpty() && passphraseInput.length < 8) {
+                    Text("Use at least 8 characters.", fontSize = 11.sp, color = TextMuted)
                 }
             }
         }

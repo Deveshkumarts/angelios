@@ -19,8 +19,12 @@ data class SosLogEvent(
     val id: String = java.util.UUID.randomUUID().toString(),
     val timestamp: Long = System.currentTimeMillis(),
     val triggerSource: String,
-    val deliveredCount: Int = 3,
-    val nearbyDevices: Int = 4
+    /** Peers that acknowledged the SOS broadcast (counted from real ACK packets). */
+    val deliveredCount: Int = 0,
+    /** Peers heard on the mesh when the SOS was raised. */
+    val nearbyDevices: Int = 0,
+    val latitude: Double? = null,
+    val longitude: Double? = null
 )
 
 /**
@@ -55,12 +59,32 @@ class EmergencyManager(private val context: Context) {
         } catch (ignored: Exception) {}
     }
 
-    fun triggerSos(source: String = "MANUAL_UI_TRIGGER", coroutineScope: CoroutineScope) {
-        if (_isSosActive.value) return
+    /** Persists the audit log whenever it changes (wired to the encrypted local database). */
+    var logPersister: ((List<SosLogEvent>) -> Unit)? = null
+
+    fun restoreLogs(logs: List<SosLogEvent>) {
+        _sosLogs.value = logs
+    }
+
+    /** Returns the id of the new audit-log entry. */
+    fun triggerSos(
+        source: String = "MANUAL_UI_TRIGGER",
+        coroutineScope: CoroutineScope,
+        nearbyDevices: Int = 0,
+        latitude: Double? = null,
+        longitude: Double? = null
+    ): String? {
+        if (_isSosActive.value) return null
         _isSosActive.value = true
 
-        val newLog = SosLogEvent(triggerSource = source)
+        val newLog = SosLogEvent(
+            triggerSource = source,
+            nearbyDevices = nearbyDevices,
+            latitude = latitude,
+            longitude = longitude
+        )
         _sosLogs.value = listOf(newLog) + _sosLogs.value
+        logPersister?.invoke(_sosLogs.value)
 
         emergencyJob = coroutineScope.launch(Dispatchers.Default) {
             // High-frequency SOS strobe + haptic pulses + siren tone
@@ -79,6 +103,13 @@ class EmergencyManager(private val context: Context) {
                 delay(250)
             }
         }
+        return newLog.id
+    }
+
+    /** A peer acknowledged the SOS identified by [logId]. */
+    fun recordDelivery(logId: String) {
+        _sosLogs.value = _sosLogs.value.map { if (it.id == logId) it.copy(deliveredCount = it.deliveredCount + 1) else it }
+        logPersister?.invoke(_sosLogs.value)
     }
 
     fun stopSos() {

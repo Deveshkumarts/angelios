@@ -248,7 +248,7 @@ fun DiagnosticsScreen(repository: CommunicationRepository) {
                 TelemetryItem("Packet Jitter:", "${linkMetrics.jitterMs} ms")
                 TelemetryItem("Battery Adaptation State:", "Battery $batteryPct% • Normal Mode")
                 TelemetryItem("CRC16 Integrity:", "CCITT 0x1021 Validated", isHighlight = true)
-                TelemetryItem("Local Encryption:", "AES-256 GCM Hardware Keystore", isHighlight = true)
+                TelemetryItem("Encryption:", "Mesh AES-256-GCM / storage Keystore", isHighlight = true)
             }
         }
     }
