@@ -40,7 +40,9 @@ class MeshForegroundService : Service() {
     companion object {
         private const val CHANNEL_STATUS = "mesh_status"
         private const val CHANNEL_SOS = "sos_alerts"
+        private const val CHANNEL_MESSAGES = "mesh_messages"
         private const val NOTIF_ID_STATUS = 1001
+        private const val MESSAGE_NOTIF_BASE = 3000
         private const val EXTRA_OPEN_EMERGENCY = "open_emergency"
         private const val WAKE_LOCK_TAG = "iTANTRA:MeshListenerWakeLock"
 
@@ -55,6 +57,7 @@ class MeshForegroundService : Service() {
     private var serviceScope: CoroutineScope? = null
     private var wakeLock: PowerManager.WakeLock? = null
     private var sosNotifCounter = 2000
+    private var messageNotifCounter = 0
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -76,6 +79,13 @@ class MeshForegroundService : Service() {
         scope.launch {
             repository.sosAlerts.collect { event ->
                 postSosAlert(event.senderName, event.message)
+            }
+        }
+        // Ordinary messages: a heads-up notification only while the app isn't on screen
+        // (in the foreground the app shows its own incoming-transmission banner instead).
+        scope.launch {
+            repository.incomingEvents.collect { event ->
+                if (!event.isSos && !repository.isAppInForeground) postMessageNotification(event.senderName, event.text)
             }
         }
     }
@@ -146,6 +156,32 @@ class MeshForegroundService : Service() {
             lockscreenVisibility = Notification.VISIBILITY_PUBLIC
         }
         nm.createNotificationChannel(sosChannel)
+
+        val messageChannel = NotificationChannel(
+            CHANNEL_MESSAGES, "Messages", NotificationManager.IMPORTANCE_HIGH
+        ).apply {
+            description = "Voice and text messages received from nearby devices"
+            enableVibration(true)
+        }
+        nm.createNotificationChannel(messageChannel)
+    }
+
+    private fun postMessageNotification(senderName: String, text: String) {
+        try {
+            val notification = NotificationCompat.Builder(this, CHANNEL_MESSAGES)
+                .setContentTitle(senderName)
+                .setContentText(text)
+                .setStyle(NotificationCompat.BigTextStyle().bigText(text))
+                .setSmallIcon(R.drawable.ic_launcher_monochrome)
+                .setPriority(NotificationCompat.PRIORITY_HIGH)
+                .setCategory(NotificationCompat.CATEGORY_MESSAGE)
+                .setAutoCancel(true)
+                .setContentIntent(openAppIntent(openEmergency = false))
+                .build()
+            getSystemService(NotificationManager::class.java)?.notify(MESSAGE_NOTIF_BASE + (messageNotifCounter++ % 50), notification)
+        } catch (t: Throwable) {
+            android.util.Log.e("MeshForegroundService", "Failed to post message notification: ${t.message}", t)
+        }
     }
 
     private fun openAppIntent(openEmergency: Boolean): PendingIntent {

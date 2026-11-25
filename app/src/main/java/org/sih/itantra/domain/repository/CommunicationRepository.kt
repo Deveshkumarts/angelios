@@ -49,6 +49,18 @@ import org.sih.itantra.network.transport.ReceivedPacket
 import org.sih.itantra.security.MeshCrypto
 import java.util.concurrent.ConcurrentHashMap
 
+/** One received chat/SOS message, for the in-app "incoming transmission" banner and notifications.
+ *  [spoken] turns true once its voice note has finished playing. */
+data class IncomingTransmission(
+    val messageId: String,
+    val senderName: String,
+    val text: String,
+    val isSos: Boolean,
+    val transport: TransportType,
+    val receivedAt: Long = System.currentTimeMillis(),
+    val spoken: Boolean = false
+)
+
 /** Fired for every incoming SOS/EMERGENCY packet from another mesh node, so a foreground service
  *  (or any other listener) can raise a system notification even while the app has no visible UI. */
 data class SosAlertEvent(
@@ -119,6 +131,30 @@ class CommunicationRepository(
     // even when no Activity/UI is on screen to show them.
     private val _sosAlerts = MutableSharedFlow<SosAlertEvent>(extraBufferCapacity = 16)
     val sosAlerts: SharedFlow<SosAlertEvent> = _sosAlerts.asSharedFlow()
+
+    // ------------------------------------------------------------------ incoming feedback
+    private val _incoming = MutableStateFlow<IncomingTransmission?>(null)
+    /** The most recent received message while its banner should be on screen, else null. */
+    val incoming: StateFlow<IncomingTransmission?> = _incoming.asStateFlow()
+
+    private val _incomingEvents = MutableSharedFlow<IncomingTransmission>(extraBufferCapacity = 16)
+    /** Every received message, for system notifications while the app is in the background. */
+    val incomingEvents: SharedFlow<IncomingTransmission> = _incomingEvents.asSharedFlow()
+
+    private val _unreadCount = MutableStateFlow(0)
+    /** Received messages not yet seen on the Talk screen (drives the tab badge). */
+    val unreadCount: StateFlow<Int> = _unreadCount.asStateFlow()
+
+    /** Set by MainActivity: true while the app's UI is visible. */
+    @Volatile var isAppInForeground: Boolean = false
+
+    fun markIncomingSeen() {
+        _unreadCount.value = 0
+    }
+
+    fun dismissIncoming(messageId: String? = null) {
+        if (messageId == null || _incoming.value?.messageId == messageId) _incoming.value = null
+    }
 
     // Real-time efficiency/accuracy/latency telemetry (see PerformanceMonitor) - replaces the
     // hardcoded benchmark numbers that used to sit directly in DiagnosticsScreen.
@@ -762,6 +798,17 @@ class CommunicationRepository(
 
             database.saveMessage(incomingMessage)
 
+            val transmission = IncomingTransmission(
+                messageId = incomingMessage.id,
+                senderName = senderDisplayName,
+                text = incomingMessage.text,
+                isSos = isSos,
+                transport = incomingMessage.transport
+            )
+            _incoming.value = transmission
+            _unreadCount.value = _unreadCount.value + 1
+            _incomingEvents.tryEmit(transmission)
+
             if (isSos) {
                 _sosAlerts.tryEmit(SosAlertEvent(senderId = packet.senderId, senderName = senderDisplayName, message = reconstructedText + locationSuffix))
             }
@@ -791,6 +838,10 @@ class CommunicationRepository(
                 reconstructedText,
                 _selectedLanguage.value,
                 alert = isSos,
+                onDone = {
+                    val cur = _incoming.value
+                    if (cur?.messageId == transmission.messageId) _incoming.value = cur.copy(spoken = true)
+                },
                 onMetrics = { startLatencyMs, audioDurationMs, success ->
                     performanceMonitor.recordTtsOutcome(success)
                     if (success) {

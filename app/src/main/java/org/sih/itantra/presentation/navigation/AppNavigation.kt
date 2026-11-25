@@ -33,6 +33,7 @@ import org.sih.itantra.presentation.profile.ProfileScreen
 import org.sih.itantra.presentation.splash.SplashScreen
 import org.sih.itantra.presentation.talk.TalkScreen
 import org.sih.itantra.presentation.ui.components.TacticalTopBar
+import org.sih.itantra.presentation.ui.components.IncomingTransmissionBanner
 import org.sih.itantra.presentation.ui.theme.*
 import org.sih.itantra.service.SosNavigationBus
 
@@ -87,6 +88,9 @@ fun AppNavigation(repository: CommunicationRepository) {
     val selectedLanguage by repository.selectedLanguage.collectAsState()
     val isSosActive by repository.emergencyManager.isSosActive.collectAsState()
     val activeTargetNode by repository.activeTargetNode.collectAsState()
+    val incoming by repository.incoming.collectAsState()
+    val unreadCount by repository.unreadCount.collectAsState()
+    val ttsSpeaking by repository.ttsEngine.isSpeaking.collectAsState()
 
     val isFullScreen = currentRoute == Screen.Splash.route || currentRoute == Screen.Register.route
 
@@ -102,6 +106,17 @@ fun AppNavigation(repository: CommunicationRepository) {
                 }
             }
         }
+    }
+
+    LaunchedEffect(currentRoute, unreadCount) {
+        if (currentRoute == Screen.Talk.route && unreadCount > 0) repository.markIncomingSeen()
+    }
+    LaunchedEffect(incoming?.messageId, incoming?.spoken) {
+        val shown = incoming ?: return@LaunchedEffect
+        // Stay up while the voice note plays, then 4 s more; give up after 12 s (30 s for SOS)
+        // in case no voice pack is installed and playback never reports completion.
+        kotlinx.coroutines.delay(if (shown.spoken) 4_000L else if (shown.isSos) 30_000L else 12_000L)
+        repository.dismissIncoming(shown.messageId)
     }
 
     val context = LocalContext.current
@@ -201,14 +216,32 @@ fun AppNavigation(repository: CommunicationRepository) {
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
                                     Column {
-                                        Text(
-                                            text = "%02d".format(i + 1),
-                                            fontFamily = LabFont,
-                                            fontSize = 9.sp,
-                                            fontWeight = FontWeight.Bold,
-                                            letterSpacing = 1.sp,
-                                            color = if (isSelected) LabOrangeDeep else LabInkDim
-                                        )
+                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                            Text(
+                                                text = "%02d".format(i + 1),
+                                                fontFamily = LabFont,
+                                                fontSize = 9.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                letterSpacing = 1.sp,
+                                                color = if (isSelected) LabOrangeDeep else LabInkDim
+                                            )
+                                            if (screen == Screen.Talk && unreadCount > 0 && !isSelected) {
+                                                Spacer(modifier = Modifier.width(6.dp))
+                                                Box(
+                                                    modifier = Modifier
+                                                        .background(LabOrange)
+                                                        .padding(horizontal = 5.dp, vertical = 1.dp)
+                                                ) {
+                                                    Text(
+                                                        text = if (unreadCount > 9) "9+" else unreadCount.toString(),
+                                                        fontFamily = LabFont,
+                                                        fontSize = 9.sp,
+                                                        fontWeight = FontWeight.Black,
+                                                        color = LabInk
+                                                    )
+                                                }
+                                            }
+                                        }
                                         Text(
                                             text = screen.label.uppercase(),
                                             fontFamily = LabFont,
@@ -328,6 +361,34 @@ fun AppNavigation(repository: CommunicationRepository) {
                 // Dashboard 4: PROFILE (User Details + 10-Language Switcher)
                 composable(Screen.Profile.route) {
                     ProfileScreen(repository = repository)
+                }
+            }
+
+            // Receive-side feedback: banner over any screen while a message arrives and plays
+            AnimatedVisibility(
+                visible = incoming != null && !isFullScreen,
+                enter = slideInVertically(tween(260)) { -it } + fadeIn(tween(200)),
+                exit = slideOutVertically(tween(220)) { -it } + fadeOut(tween(180)),
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .padding(horizontal = 12.dp, vertical = 8.dp)
+            ) {
+                // Keep the last value during the exit animation
+                var last by remember { mutableStateOf(incoming) }
+                if (incoming != null) last = incoming
+                last?.let { msg ->
+                    IncomingTransmissionBanner(
+                        transmission = msg,
+                        isPlaying = ttsSpeaking,
+                        onOpen = {
+                            repository.dismissIncoming(msg.messageId)
+                            val target = if (msg.isSos) Screen.Emergency.route else Screen.Talk.route
+                            if (currentRoute != target && !isFullScreen) {
+                                navController.navigate(target) { launchSingleTop = true }
+                            }
+                        },
+                        onDismiss = { repository.dismissIncoming(msg.messageId) }
+                    )
                 }
             }
         }

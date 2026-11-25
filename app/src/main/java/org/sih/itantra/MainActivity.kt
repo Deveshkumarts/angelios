@@ -74,6 +74,17 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    override fun onStart() {
+        super.onStart()
+        // While the UI is visible, received messages show as an in-app banner instead of a notification
+        repository?.isAppInForeground = true
+    }
+
+    override fun onStop() {
+        repository?.isAppInForeground = false
+        super.onStop()
+    }
+
     override fun onResume() {
         super.onResume()
         enable120HzRefreshRate()
