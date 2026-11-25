@@ -1,13 +1,5 @@
 package org.sih.itantra.ml.translation
 
-import com.google.android.gms.tasks.Tasks
-import com.google.mlkit.common.model.DownloadConditions
-import com.google.mlkit.common.model.RemoteModelManager
-import com.google.mlkit.nl.translate.TranslateLanguage
-import com.google.mlkit.nl.translate.TranslateRemoteModel
-import com.google.mlkit.nl.translate.Translation
-import com.google.mlkit.nl.translate.Translator
-import com.google.mlkit.nl.translate.TranslatorOptions
 import org.sih.itantra.domain.model.Language
 import org.json.JSONObject
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -79,8 +71,8 @@ data class DownloadedLanguagePack(
  * Dual-tier architecture:
  * 1. AI4Bharat IndicTrans2 Edge Base Station (SIH-PS2-MODEL on GPU) if reachable on Wi-Fi / Hotspot
  * 2. Downloaded SIH-PS2-MODEL Distilled Language Packs (Runs 100% offline with zero server!)
- * 3. Google ML Kit On-Device Neural Network (runs 100% offline on phone processor)
- * 4. Embedded Syntactic & Grammatical Engine for zero-latency local fallback
+ * 3. Embedded Syntactic & Grammatical Engine for zero-latency local fallback
+ * All tiers are open-source; no proprietary or cloud translation SDK is used.
  */
 class OfflineTranslatorEngine {
 
@@ -458,7 +450,6 @@ class OfflineTranslatorEngine {
     private val _edgeServerStatus = MutableStateFlow(EdgeServerStatus())
     val edgeServerStatus: StateFlow<EdgeServerStatus> = _edgeServerStatus.asStateFlow()
 
-    private val mlKitTranslators = ConcurrentHashMap<String, Translator>()
     val downloadedModels = ConcurrentHashMap<String, Boolean>()
 
     // Thread-safe fast in-memory translation cache for instantaneous (0.001 ms) responses
@@ -557,7 +548,7 @@ class OfflineTranslatorEngine {
         // Tier 1.55: Base Station neural model (IndicTrans2 on GPU) - outranks every fuzzy/heuristic tier.
         // Exact curated phrases above still win (authoritative tactical wording), but for anything
         // free-form - slang, colloquial speech, long sentences - the real neural translation is far
-        // more accurate than templates, the compound splitter, ML Kit or word-by-word rules.
+        // more accurate than templates, the compound splitter or word-by-word rules.
         var edgeAttempted = false
         if (isEdgeServerActive && edgeServerHost != null && depth == 0) {
             edgeAttempted = true
@@ -595,20 +586,6 @@ class OfflineTranslatorEngine {
             val colloquialPattern = ColloquialEngine.toColloquial(patternMatch, targetLanguage, trimmed)
             translationCache[cacheKey] = colloquialPattern
             return colloquialPattern
-        }
-
-        // Tier 1.75: Google ML Kit on-device neural model (100% offline). Free-form speech that no curated
-        // phrase or strict template covers goes to real NMT here - BEFORE the pivot, compound splitter and
-        // word-by-word tiers, which drop or leave words untranslated (e.g. "One காயமடைந்துள்ளார்").
-        // The formal-normalised text is preferred so colloquial verb forms are not truncated.
-        var neuralTranslation = translateWithMlKit(formalText, actualSource, targetLanguage)
-        if (neuralTranslation.isNullOrBlank() && formalText != trimmed) {
-            neuralTranslation = translateWithMlKit(trimmed, actualSource, targetLanguage)
-        }
-        if (!neuralTranslation.isNullOrBlank() && !neuralTranslation.equals(trimmed, ignoreCase = true)) {
-            val colloquialNeural = ColloquialEngine.toColloquial(neuralTranslation, targetLanguage, trimmed)
-            translationCache[cacheKey] = colloquialNeural
-            return colloquialNeural
         }
 
         // Tier 1.78: Offline concept lexicon (all 10 Indic languages -> English / any Indic language).
@@ -888,10 +865,7 @@ class OfflineTranslatorEngine {
             if (patternResult != null) return@map patternResult
             val packResult = translateWithDownloadedPack(clause, sourceLanguage, targetLanguage)
             if (!packResult.isNullOrBlank()) return@map packResult
-            val formalClause = ColloquialEngine.toFormal(clause, sourceLanguage)
-            val mlResult = translateWithMlKit(formalClause, sourceLanguage, targetLanguage)
-                ?: translateWithMlKit(clause, sourceLanguage, targetLanguage)
-            mlResult ?: clause
+            clause
         }
 
         // Return only if at least one clause was actually translated
@@ -904,100 +878,9 @@ class OfflineTranslatorEngine {
     }
 
 
-    private fun getMlKitLanguageTag(lang: Language): String? {
-        return TranslateLanguage.fromLanguageTag(lang.code)
-    }
-
-    fun isNeuralModelSupported(lang: Language): Boolean {
-        return getMlKitLanguageTag(lang) != null
-    }
-
-    fun getOrCreateMlKitTranslator(
-        targetLanguage: Language,
-        sourceLanguage: Language = Language.ENGLISH
-    ): Translator? {
-        val srcTag = getMlKitLanguageTag(sourceLanguage) ?: return null
-        val tgtTag = getMlKitLanguageTag(targetLanguage) ?: return null
-        if (srcTag == tgtTag) return null
-        val key = "$srcTag->$tgtTag"
-        return mlKitTranslators.computeIfAbsent(key) {
-            val options = TranslatorOptions.Builder()
-                .setSourceLanguage(srcTag)
-                .setTargetLanguage(tgtTag)
-                .build()
-            Translation.getClient(options)
-        }
-    }
-
-    /**
-     * Fetches the on-device neural model for every ML Kit-supported language (Odia has none), one at a
-     * time, so Indic->English and Indic->Indic translation works offline for ALL languages instead of only
-     * the currently selected ones. Speaker/receiver languages are queued first.
-     */
-    fun downloadAllModels(priority: List<Language> = emptyList()) {
-        val order = (priority + Language.entries).filter { it != Language.ENGLISH && isNeuralModelSupported(it) }.distinct()
-        fun next(i: Int) {
-            if (i >= order.size) return
-            val tag = getMlKitLanguageTag(order[i]) ?: return next(i + 1)
-            if (downloadedModels[tag] == true) return next(i + 1)
-            downloadModelIfNeeded(order[i], timeoutMs = 120_000L) { next(i + 1) }
-        }
-        next(0)
-    }
-
-    fun downloadModelIfNeeded(targetLanguage: Language, timeoutMs: Long = 10000L, onResult: ((Boolean) -> Unit)? = null) {
-        val tgtTag = getMlKitLanguageTag(targetLanguage) ?: run {
-            onResult?.invoke(false)
-            return
-        }
-        val translator = getOrCreateMlKitTranslator(targetLanguage) ?: run {
-            onResult?.invoke(false)
-            return
-        }
-        val completed = java.util.concurrent.atomic.AtomicBoolean(false)
-        val handler = android.os.Handler(android.os.Looper.getMainLooper())
-        val timeoutRunnable = Runnable {
-            if (completed.compareAndSet(false, true)) {
-                android.util.Log.w("OfflineTranslatorEngine", "ML Kit model download timed out ($timeoutMs ms) - offline mesh active, Google Play Services unreachable")
-                onResult?.invoke(false)
-            }
-        }
-        handler.postDelayed(timeoutRunnable, timeoutMs)
-
-        val conditions = DownloadConditions.Builder().build()
-        translator.downloadModelIfNeeded(conditions)
-            .addOnSuccessListener {
-                handler.removeCallbacks(timeoutRunnable)
-                if (completed.compareAndSet(false, true)) {
-                    downloadedModels[tgtTag] = true
-                    android.util.Log.i("OfflineTranslatorEngine", "ML Kit pretrained neural model for $tgtTag downloaded and cached for offline use")
-                    onResult?.invoke(true)
-                }
-            }
-            .addOnFailureListener { e ->
-                handler.removeCallbacks(timeoutRunnable)
-                if (completed.compareAndSet(false, true)) {
-                    android.util.Log.w("OfflineTranslatorEngine", "ML Kit model download pending/failed: ${e.message}")
-                    onResult?.invoke(false)
-                }
-            }
-    }
-
-    fun checkModelDownloaded(targetLanguage: Language, callback: (Boolean) -> Unit) {
-        val tgtTag = getMlKitLanguageTag(targetLanguage) ?: run {
-            callback(false)
-            return
-        }
-        val model = TranslateRemoteModel.Builder(tgtTag).build()
-        RemoteModelManager.getInstance().isModelDownloaded(model)
-            .addOnSuccessListener { isDownloaded ->
-                downloadedModels[tgtTag] = isDownloaded
-                callback(isDownloaded)
-            }
-            .addOnFailureListener {
-                callback(false)
-            }
-    }
+    /** Translation uses only open-source paths (curated engines, downloaded packs, IndicTrans2 on
+     *  the base station); there is no on-device proprietary neural MT any more. */
+    fun isNeuralModelSupported(lang: Language): Boolean = false
 
     private val isCheckingServer = java.util.concurrent.atomic.AtomicBoolean(false)
 
@@ -1083,34 +966,6 @@ class OfflineTranslatorEngine {
                 isCheckingServer.set(false)
             }
         }.start()
-    }
-
-    private fun translateWithMlKit(
-        text: String,
-        sourceLanguage: Language,
-        targetLanguage: Language
-    ): String? {
-        return try {
-            val translator = getOrCreateMlKitTranslator(targetLanguage, sourceLanguage) ?: return null
-            val task = translator.translate(text)
-            // Synchronously wait for neural inference on device CPU/NNAPI with 1200ms timeout
-            val result = Tasks.await(task, 1200, TimeUnit.MILLISECONDS) ?: return null
-            val trimmedRes = result.trim()
-            if (trimmedRes.isBlank()) return null
-
-            // Truncation guard: If source text has 3+ words, but ML Kit returns only 1 word,
-            // ML Kit truncated/dropped words (e.g. "எல்லாரும் எங்க இருக்கீங்க" -> "Everyone").
-            // Reject incomplete single-word output so high-accuracy phrase/grammar engine handles it!
-            val inputWordCount = text.trim().split(Regex("""\s+""")).size
-            val outputWordCount = trimmedRes.split(Regex("""\s+""")).size
-            if (inputWordCount >= 3 && outputWordCount <= 1) {
-                android.util.Log.w("OfflineTranslatorEngine", "ML Kit truncation detected: '$text' ($inputWordCount words) -> '$trimmedRes' ($outputWordCount words). Rejecting partial translation.")
-                return null
-            }
-            trimmedRes
-        } catch (_: Exception) {
-            null
-        }
     }
 
     fun getFloresLanguageTag(lang: Language): String {

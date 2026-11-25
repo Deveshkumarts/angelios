@@ -33,6 +33,8 @@ class LocalEncryptedDatabase(private val context: Context) {
 
     companion object {
         const val MAX_STORED_MESSAGES = 1000
+        /** Signal changes smaller than this are not re-published to the UI. */
+        const val RSSI_PUBLISH_STEP_DB = 4
     }
 
     private val inMemoryMessages = CopyOnWriteArrayList<ChatMessage>()
@@ -233,6 +235,11 @@ class LocalEncryptedDatabase(private val context: Context) {
         }
     }
 
+    // Last time each peer was heard. Kept out of nodesFlow on purpose: beacons arrive several times
+    // a second per peer, and re-publishing the list for a timestamp-only change made every screen
+    // that shows peers rebuild constantly (visible jank on phones).
+    private val nodeLastSeen = java.util.concurrent.ConcurrentHashMap<String, Long>()
+
     @Synchronized
     fun addOrUpdateNode(node: NetworkNode) {
         val myNodeId = getOrCreateNodeId().trim()
@@ -240,12 +247,21 @@ class LocalEncryptedDatabase(private val context: Context) {
         if (incomingId.equals(myNodeId, ignoreCase = true)) {
             return
         }
-        val updatedNode = node.copy(lastSeenTimestamp = System.currentTimeMillis())
-        val index = inMemoryNodes.indexOfFirst { it.id == updatedNode.id }
+        val now = System.currentTimeMillis()
+        nodeLastSeen[node.id] = now
+        val index = inMemoryNodes.indexOfFirst { it.id == node.id }
         if (index != -1) {
-            inMemoryNodes[index] = updatedNode
+            val old = inMemoryNodes[index]
+            val visibleChange = old.name != node.name ||
+                old.batteryPct != node.batteryPct ||
+                old.transportType != node.transportType ||
+                old.hopCount != node.hopCount ||
+                old.isDirectNeighbor != node.isDirectNeighbor ||
+                kotlin.math.abs(old.rssi - node.rssi) >= RSSI_PUBLISH_STEP_DB
+            if (!visibleChange) return
+            inMemoryNodes[index] = node.copy(lastSeenTimestamp = now)
         } else {
-            inMemoryNodes.add(updatedNode)
+            inMemoryNodes.add(node.copy(lastSeenTimestamp = now))
         }
         _nodesFlow.value = inMemoryNodes.toList()
     }
@@ -253,19 +269,22 @@ class LocalEncryptedDatabase(private val context: Context) {
     @Synchronized
     fun pruneStaleNodes(maxAgeMs: Long = 12_000L) {
         val now = System.currentTimeMillis()
-        val changed = inMemoryNodes.removeAll { (now - it.lastSeenTimestamp) > maxAgeMs }
+        val changed = inMemoryNodes.removeAll { (now - (nodeLastSeen[it.id] ?: it.lastSeenTimestamp)) > maxAgeMs }
         if (changed) {
+            nodeLastSeen.keys.retainAll(inMemoryNodes.map { it.id }.toSet())
             _nodesFlow.value = inMemoryNodes.toList()
         }
     }
 
     @Synchronized
     fun clearNodes() {
+        nodeLastSeen.clear()
         inMemoryNodes.clear()
         _nodesFlow.value = emptyList()
     }
 
     fun removeNode(nodeId: String) {
+        nodeLastSeen.remove(nodeId)
         inMemoryNodes.removeAll { it.id == nodeId }
         _nodesFlow.value = inMemoryNodes.toList()
     }

@@ -109,7 +109,7 @@ fun UserRegistrationScreen(
                 }
                 Spacer(Modifier.height(18.dp))
                 Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.Bottom) {
-                    LabWordmark("angelios", fontSize = 60.sp, dotColor = LabOrange, modifier = Modifier.weight(1f))
+                    LabWordmark("angelios", fontSize = 52.sp, dotColor = LabOrange, modifier = Modifier.weight(1f))
                 }
                 Spacer(Modifier.height(10.dp))
                 Row(modifier = Modifier.fillMaxWidth()) {

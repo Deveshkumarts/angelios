@@ -9,6 +9,11 @@ import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -27,12 +32,15 @@ import androidx.compose.ui.unit.sp
 import org.sih.itantra.presentation.ui.theme.*
 
 /*
- * Editorial "lab" building blocks: lowercase wordmarks ending in a full stop, tiny tracked
+ * Editorial "lab" building blocks: uppercase wordmarks ending in a full stop, tiny tracked
  * uppercase captions, hairline-framed square panels, solid orange blocks and black square
  * arrow buttons. Everything is sharp-cornered on purpose.
  */
 
-/** Lowercase wordmark with the trailing full stop, e.g. "angelios." / "talk." */
+/**
+ * Uppercase wordmark with the trailing full stop, e.g. "ANGELIOS." / "TALK.".
+ * Shrinks its font step by step if the word would not fit on one line.
+ */
 @Composable
 fun LabWordmark(
     text: String,
@@ -41,19 +49,29 @@ fun LabWordmark(
     color: Color = LabInk,
     dotColor: Color = color
 ) {
+    var fittedSize by remember(text, fontSize) { mutableStateOf(fontSize) }
+    var ready by remember(text, fontSize) { mutableStateOf(false) }
     Text(
         text = buildAnnotatedString {
-            append(text.lowercase())
+            append(text.uppercase())
             withStyle(SpanStyle(color = dotColor)) { append(".") }
         },
         style = LabDisplay.copy(
-            fontSize = fontSize,
-            lineHeight = fontSize,
-            letterSpacing = (fontSize.value * -0.045f).sp,
+            fontSize = fittedSize,
+            lineHeight = fittedSize * 1.05f,
+            letterSpacing = (fittedSize.value * -0.03f).sp,
             color = color
         ),
-        modifier = modifier,
-        maxLines = 1
+        modifier = modifier.drawWithContent { if (ready) drawContent() },
+        maxLines = 1,
+        softWrap = false,
+        onTextLayout = { result ->
+            if (result.didOverflowWidth && fittedSize.value > 14f) {
+                fittedSize = (fittedSize.value * 0.92f).sp
+            } else {
+                ready = true
+            }
+        }
     )
 }
 
@@ -163,7 +181,7 @@ fun LabSectionLabel(
  * Screen hero modelled on the reference poster:
  *
  *   001 / 004 ─ SECTION                         CAPTION LINE 1
- *   talk.                                       CAPTION LINE 2
+ *   TALK.                                       CAPTION LINE 2
  *   [→]█████████████ status line ████████████████████████
  */
 @Composable

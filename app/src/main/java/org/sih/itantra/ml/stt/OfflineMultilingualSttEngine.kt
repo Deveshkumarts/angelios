@@ -7,8 +7,8 @@ import kotlin.math.abs
 /**
  * Transcript stage of the pipeline.
  *
- * Acoustic recognition itself is done by [AndroidSpeechManager] (on-device recognizer on Android 12+,
- * otherwise the system recognizer with EXTRA_PREFER_OFFLINE). This class only wraps the recognised
+ * Acoustic recognition itself is done by [org.sih.itantra.speech.OnDeviceSpeechRecognizer]
+ * (open-source AI4Bharat IndicConformer + Silero VAD via sherpa-onnx). This class only wraps the recognised
  * text into an [SttResult]; [transcribe] on raw PCM deliberately returns an empty transcript rather
  * than inventing one. The phrasebook below is the canonical test vocabulary.
  */

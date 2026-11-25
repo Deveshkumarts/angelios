@@ -137,6 +137,29 @@ def app_language_pack(flores_tag: str):
     return FileResponse(path, media_type="application/json")
 
 
+# On-device speech model packs (STT: IndicConformer, TTS: MMS) downloaded by
+# tools/download_language_packs.py. Phones pull them over the local Wi-Fi/hotspot, never the internet.
+SPEECH_PACKS_DIR = os.path.realpath(os.environ.get(
+    "ITANTRA_SPEECH_PACKS_DIR",
+    os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "models", "packs"),
+))
+_SPEECH_PACK_FILES = {"stt/model.int8.onnx", "stt/tokens.txt", "tts/model.onnx", "tts/tokens.txt"}
+
+
+@app.get("/api/speechpack/{lang}/{kind}/{name}")
+def speech_pack_file(lang: str, kind: str, name: str):
+    rel = f"{kind}/{name}"
+    if lang == "common" and rel == "vad/silero_vad.onnx":
+        pass  # shared Silero VAD, stored at packs/common/silero_vad.onnx
+    elif not (lang.isalpha() and len(lang) <= 3 and rel in _SPEECH_PACK_FILES):
+        raise HTTPException(status_code=400, detail="Invalid speech pack path")
+    path = os.path.realpath(os.path.join(SPEECH_PACKS_DIR, lang, kind, name) if lang != "common"
+                            else os.path.join(SPEECH_PACKS_DIR, "common", "silero_vad.onnx"))
+    if not path.startswith(SPEECH_PACKS_DIR + os.sep) or not os.path.isfile(path):
+        raise HTTPException(status_code=404, detail="Speech pack file not on this base station")
+    return FileResponse(path, media_type="application/octet-stream")
+
+
 # ---------------------------------------------------------------- v1 API
 
 @app.post("/api/v1/translate_speech")

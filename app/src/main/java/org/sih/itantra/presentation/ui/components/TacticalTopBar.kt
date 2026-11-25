@@ -62,7 +62,7 @@ fun TacticalTopBar(
         ) {
             // Wordmark + operator line
             Column(modifier = Modifier.weight(1f)) {
-                LabWordmark("angelios", fontSize = 24.sp, dotColor = LabOrange)
+                LabWordmark("angelios", fontSize = 22.sp, dotColor = LabOrange)
                 Spacer(Modifier.height(2.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Box(

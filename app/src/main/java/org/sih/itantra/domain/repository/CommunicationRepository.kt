@@ -33,7 +33,9 @@ import org.sih.itantra.ml.audio.AudioCaptureManager
 import org.sih.itantra.ml.semantic.SemanticDecoder
 import org.sih.itantra.ml.semantic.SemanticEncoder
 import org.sih.itantra.ml.stt.OfflineMultilingualSttEngine
-import org.sih.itantra.ml.tts.OfflineTtsEngine
+import org.sih.itantra.speech.OnDeviceSpeechRecognizer
+import org.sih.itantra.speech.OnDeviceTts
+import org.sih.itantra.speech.SpeechModelPacks
 import org.sih.itantra.network.compression.AdaptiveCompressor
 import org.sih.itantra.network.mesh.MeshRouter
 import org.sih.itantra.network.monitor.NetworkQualityMonitor
@@ -63,18 +65,19 @@ data class SosAlertEvent(
  */
 class CommunicationRepository(
     private val context: Context,
+    val speechPacks: SpeechModelPacks = SpeechModelPacks(context),
     val audioCaptureManager: AudioCaptureManager = AudioCaptureManager(),
     val sttEngine: OfflineMultilingualSttEngine = OfflineMultilingualSttEngine(),
     val semanticEncoder: SemanticEncoder = SemanticEncoder(),
     val semanticDecoder: SemanticDecoder = SemanticDecoder(),
-    val ttsEngine: OfflineTtsEngine = OfflineTtsEngine(context),
+    val ttsEngine: OnDeviceTts = OnDeviceTts(context, speechPacks),
     val compressor: AdaptiveCompressor = AdaptiveCompressor(),
     val networkMonitor: NetworkQualityMonitor = NetworkQualityMonitor(),
     val batteryManager: BatteryAdaptiveManager = BatteryAdaptiveManager(context),
     val emergencyManager: EmergencyManager = EmergencyManager(context),
     val database: LocalEncryptedDatabase = LocalEncryptedDatabase(context),
     val transportManager: TransportManager = TransportManager(context),
-    val speechManager: org.sih.itantra.ml.stt.AndroidSpeechManager = org.sih.itantra.ml.stt.AndroidSpeechManager(context),
+    val speechManager: OnDeviceSpeechRecognizer = OnDeviceSpeechRecognizer(speechPacks),
     val translatorEngine: org.sih.itantra.ml.translation.OfflineTranslatorEngine = org.sih.itantra.ml.translation.OfflineTranslatorEngine(),
     val locationProvider: LocationProvider = LocationProvider(context)
 ) {
@@ -220,12 +223,19 @@ class CommunicationRepository(
         // STT latency/confidence recorded straight from the device's own speech recognizer.
         performanceMonitor.start(
             scope = scope,
-            totalNeuralModels = Language.entries.count { it != Language.ENGLISH && translatorEngine.isNeuralModelSupported(it) },
-            downloadedModelsProvider = { translatorEngine.downloadedModels.count { it.value } }
+            totalNeuralModels = Language.entries.size,
+            downloadedModelsProvider = {
+                speechPacks.refresh()
+                speechPacks.status.value.count { it.value.stt && it.value.tts }
+            }
         )
-        speechManager.onSttCompleted = { latencyMs, confidencePct ->
+        speechManager.onSttCompleted = { latencyMs, rtf ->
             performanceMonitor.recordSttLatency(latencyMs)
-            confidencePct?.let { performanceMonitor.recordSttConfidence(it) }
+            performanceMonitor.recordSttRtf(rtf)
+        }
+        // Phone mode is half-duplex at the input: ignore the mic while our own speaker is talking.
+        scope.launch {
+            ttsEngine.isSpeaking.collect { speaking -> speechManager.setInputPaused(speaking && _handsFree.value) }
         }
 
         // 1. Synchronize real hardware battery level directly with network monitor metrics
@@ -298,18 +308,10 @@ class CommunicationRepository(
             }
         }
 
-        // Auto-download on-device neural translation models in background
-        if (_selectedLanguage.value != Language.ENGLISH) {
-            translatorEngine.downloadModelIfNeeded(_selectedLanguage.value)
-        }
-        if (_receiverLanguage.value != Language.ENGLISH) {
-            translatorEngine.downloadModelIfNeeded(_receiverLanguage.value)
-        }
-        // Pre-download the neural models for ALL supported Indic languages (queued, speaker/receiver first)
-        // so every source->target pair translates offline, not just Tamil/Hindi.
-        translatorEngine.downloadAllModels(
-            listOf(_selectedLanguage.value, _receiverLanguage.value, Language.TAMIL, Language.HINDI)
-        )
+        // Warm up the on-device speech models for the operator's language so the first PTT
+        // press and the first incoming message don't wait for a model load.
+        speechManager.prepare(_selectedLanguage.value)
+        ttsEngine.prepare(_selectedLanguage.value)
 
         // Ultra-fast 1.0s discovery heartbeat + real-time 3.0s disconnected device pruning
         scope.launch {
@@ -330,156 +332,277 @@ class CommunicationRepository(
 
     fun setSelectedLanguage(lang: Language) {
         _selectedLanguage.value = lang
-        if (lang != Language.ENGLISH) {
-            translatorEngine.downloadModelIfNeeded(lang)
-        }
+        speechManager.prepare(lang)
+        ttsEngine.prepare(lang)
     }
 
     fun setReceiverLanguage(lang: Language) {
         _receiverLanguage.value = lang
-        if (lang != Language.ENGLISH) {
-            translatorEngine.downloadModelIfNeeded(lang)
-        }
     }
 
     fun setActiveTargetNode(node: NetworkNode?) {
         _activeTargetNode.value = node
     }
 
+    // ------------------------------------------------------------------ voice capture
+
+    private val _handsFree = MutableStateFlow(false)
+    /** Phone mode: mic stays open, every sentence is sent when the speaker pauses (no PTT). */
+    val handsFree: StateFlow<Boolean> = _handsFree.asStateFlow()
+
+    /** Why speech input can't run right now (e.g. the language pack isn't installed), else null. */
+    val speechUnavailableReason: StateFlow<String?> get() = speechManager.unavailableReason
+
+    private val sendSentence: (String, Language) -> Unit = { text, _ -> scope.launch { transmitText(text) } }
+
     /**
-     * Step 1: User presses PTT button
+     * Step 1: PTT pressed. Speech is segmented by the on-device VAD; every sentence closed by a
+     * pause is recognised and transmitted immediately, while the button is still held.
      */
     fun startPttCapture() {
+        if (_handsFree.value) return
         _pttState.value = PttState.LISTENING
         performanceMonitor.setActive(true)
         speechManager.clear()
-        if (speechManager.isAvailable()) {
+        speechManager.onSentence = sendSentence
+        speechManager.startListening(_selectedLanguage.value)
+    }
+
+    /**
+     * Step 2: PTT released (closes and sends the last sentence), or a typed message is sent.
+     */
+    fun stopPttCaptureAndSend(customTextOverride: String? = null) {
+        scope.launch {
             try {
-                speechManager.startListening(_selectedLanguage.value)
-            } catch (e: Exception) {
-                android.util.Log.w("CommunicationRepo", "SpeechManager startListening failed: ${e.message}")
+                if (!customTextOverride.isNullOrBlank()) {
+                    transmitText(customTextOverride.trim())
+                    return@launch
+                }
+                if (_handsFree.value) return@launch
+                _pttState.value = PttState.PROCESSING
+                val transcript = speechManager.stopListening()
+                if (transcript.isBlank()) {
+                    android.util.Log.d("CommunicationRepo", "No speech detected during PTT; nothing sent")
+                    _pttState.value = PttState.IDLE
+                }
+            } catch (t: Throwable) {
+                android.util.Log.e("CommunicationRepository", "PTT stop failed: ${t.message}", t)
+                _pttState.value = PttState.FAILED
+            } finally {
+                if (!_handsFree.value) performanceMonitor.setActive(false)
             }
         }
     }
 
+    /** Switch between walkie-talkie (PTT) and phone mode (open mic, sentences sent on pause). */
+    fun setHandsFreeMode(enabled: Boolean) {
+        if (_handsFree.value == enabled) return
+        _handsFree.value = enabled
+        if (enabled) {
+            speechManager.clear()
+            speechManager.onSentence = sendSentence
+            speechManager.startListening(_selectedLanguage.value, handsFree = true)
+            performanceMonitor.setActive(true)
+            _pttState.value = PttState.LISTENING
+        } else {
+            scope.launch {
+                speechManager.stopListening()
+                speechManager.setInputPaused(false)
+                performanceMonitor.setActive(false)
+                _pttState.value = PttState.IDLE
+            }
+        }
+    }
+
+    // ------------------------------------------------------------------ speech packs over Wi-Fi
+
+    private val _speechPackDownload = MutableStateFlow<String?>(null)
+    /** Progress text while a speech pack is being pulled from the base station, else null. */
+    val speechPackDownload: StateFlow<String?> = _speechPackDownload.asStateFlow()
+
     /**
-     * Step 2: User releases PTT button
-     * Executes the complete Voice -> STT -> Semantic -> Compression -> Packet -> Transmit pipeline!
+     * Pull one language's open-source speech models from the laptop base station over the local
+     * Wi-Fi/hotspot (no internet). Files are streamed to disk and only renamed into place once
+     * complete, so an interrupted transfer never leaves a half-written model behind.
      */
-    fun stopPttCaptureAndSend(customTextOverride: String? = null) {
-        _pttState.value = PttState.PROCESSING
-
-        scope.launch {
+    fun downloadSpeechPackFromBaseStation(lang: Language) {
+        if (_speechPackDownload.value != null) return
+        _speechPackDownload.value = "Looking for the base station..."
+        scope.launch(kotlinx.coroutines.Dispatchers.IO) {
             try {
-                val speechVoice = try { speechManager.stopListening().trim() } catch (e: Exception) { "" }
-                val liveText = speechManager.liveTranscript.value.trim()
-                val recognizedText = if (speechVoice.isNotBlank()) speechVoice else liveText
-
-                // Determine the actual message text - NEVER use fake canned phrases!
-                val textToUse = when {
-                    !customTextOverride.isNullOrBlank() -> customTextOverride.trim()
-                    recognizedText.isNotBlank() -> recognizedText
-                    else -> null
-                }
-
-                if (textToUse.isNullOrBlank()) {
-                    android.util.Log.d("CommunicationRepo", "No speech detected during PTT, resetting to IDLE without sending default message")
-                    _pttState.value = PttState.IDLE
+                val port = translatorEngine.edgeServerPort
+                val host = listOfNotNull(
+                    translatorEngine.edgeServerHost, translatorEngine.getDetectedGatewayHost(),
+                    "192.168.137.1", "192.168.43.1", "10.0.2.2"
+                ).distinct().firstOrNull { baseStationReachable(it, port) }
+                if (host == null) {
+                    _speechPackDownload.value = "Base station not reachable on this Wi-Fi/hotspot"
+                    delay(4000)
                     return@launch
                 }
-
-                // 1. Offline STT Transcription
-                val sttStart = System.currentTimeMillis()
-                val sttResult = sttEngine.transcribeText(textToUse, _selectedLanguage.value)
-                val sttDuration = System.currentTimeMillis() - sttStart
-
-                // 2. Semantic Extraction (General Comms is strictly non-emergency mode)
-                val semStart = System.currentTimeMillis()
-                val semantic = semanticEncoder.encode(
-                    sttResult.transcript,
-                    _selectedLanguage.value,
-                    _receiverLanguage.value
-                )
-                val semDuration = System.currentTimeMillis() - semStart
-
-                // 3. Adaptive Compression (General Comms priority is always NORMAL)
-                _pttState.value = PttState.COMPRESSING
-                val compStart = System.currentTimeMillis()
-                val currentLq = linkMetrics.value.linkQuality
-                val compResult = compressor.compress(
-                    sttResult.transcript,
-                    semantic,
-                    currentLq,
-                    Priority.NORMAL
-                )
-                val compDuration = System.currentTimeMillis() - compStart
-
-                // 4. Packetization with CRC16 Checksum
-                _pttState.value = PttState.TRANSMITTING
-                val targetNodeId = _activeTargetNode.value?.id ?: "BRDCAST_"
-                val actualSourceLang = translatorEngine.detectScriptLanguage(textToUse) ?: _selectedLanguage.value
-                val packet = MeshCrypto.seal(Packet(
-                    senderId = meshRouter.localNodeId,
-                    receiverId = targetNodeId,
-                    languageId = actualSourceLang.id,
-                    priority = Priority.NORMAL,
-                    packetType = compResult.packetType,
-                    payload = compResult.payload
-                ))
-
-                // 5. Mesh Queueing and Transmission
-                val txStart = System.currentTimeMillis()
-                meshRouter.enqueueOutgoing(packet)
-                val txSuccess = transportManager.transmitPacket(packet)
-                val txDuration = System.currentTimeMillis() - txStart
-
-                networkMonitor.recordPacketTransmission(txSuccess, txDuration)
-
-                // 6. Log in Encrypted Local Database
-                val telemetry = TechnicalTelemetry(
-                    sttDurationMs = sttDuration,
-                    semanticDurationMs = semDuration,
-                    compressionDurationMs = compDuration,
-                    networkTransitDurationMs = txDuration,
-                    reassemblyDurationMs = 5L,
-                    ttsDurationMs = 85L,
-                    payloadBytes = packet.payloadLength,
-                    rawEquivalentBytes = 64000
-                )
-
-                val chatMessage = ChatMessage(
-                    senderId = meshRouter.localNodeId,
-                    senderName = "${userProfile.value.username} (You)",
-                    receiverId = targetNodeId,
-                    text = sttResult.transcript,
-                    reconstructedSpeechText = semanticDecoder.decode(semantic, _selectedLanguage.value),
-                    priority = semantic.priority,
-                    packetType = compResult.packetType,
-                    transport = linkMetrics.value.activeTransport,
-                    language = _selectedLanguage.value,
-                    // DELIVERED_ACK is only set once a peer actually acknowledges (see trackDelivery)
-                    status = if (txSuccess) DeliveryStatus.TRANSMITTING else DeliveryStatus.FAILED,
-                    isIncoming = false,
-                    timestamp = System.currentTimeMillis(),
-                    telemetry = telemetry
-                )
-
-                database.saveMessage(chatMessage)
-
-                _pttState.value = if (semantic.priority == Priority.EMERGENCY) {
-                    PttState.EMERGENCY
-                } else if (txSuccess) {
-                    PttState.TRANSMITTING
-                } else {
-                    PttState.FAILED
+                val files = buildList {
+                    if (speechPacks.vadModel() == null) add("common/vad/silero_vad.onnx" to "common/silero_vad.onnx")
+                    listOf("stt/model.int8.onnx", "stt/tokens.txt", "tts/model.onnx", "tts/tokens.txt")
+                        .forEach { add("${lang.code}/$it" to "${lang.code}/$it") }
                 }
-                if (txSuccess) trackDelivery(packet, chatMessageId = chatMessage.id, sosLogId = null)
+                files.forEachIndexed { i, (remote, local) ->
+                    val dest = java.io.File(speechPacks.internalRoot, local)
+                    if (dest.isFile && dest.length() > 0) return@forEachIndexed
+                    streamToFile("http://$host:$port/api/speechpack/$remote", dest) { pct ->
+                        _speechPackDownload.value = "${lang.displayName}: file ${i + 1}/${files.size} - $pct%"
+                    }
+                }
+                speechPacks.refresh()
+                if (lang == _selectedLanguage.value) {
+                    speechManager.prepare(lang)
+                    ttsEngine.prepare(lang)
+                }
+                _speechPackDownload.value = "${lang.displayName} speech pack installed"
+                delay(3000)
             } catch (t: Throwable) {
-                android.util.Log.e("CommunicationRepository", "PTT capture and send failed: ${t.message}", t)
-                _pttState.value = PttState.FAILED
+                android.util.Log.w("CommunicationRepo", "Speech pack download failed: ${t.message}")
+                _speechPackDownload.value = "Download failed: ${t.message ?: "connection lost"}"
+                delay(4000)
             } finally {
-                performanceMonitor.setActive(false)
+                _speechPackDownload.value = null
             }
+        }
+    }
+
+    private fun baseStationReachable(host: String, port: Int): Boolean = try {
+        val conn = java.net.URL("http://$host:$port/api/status").openConnection() as java.net.HttpURLConnection
+        conn.connectTimeout = 800
+        conn.readTimeout = 1500
+        (conn.responseCode == 200).also { conn.disconnect() }
+    } catch (_: Exception) {
+        false
+    }
+
+    private fun streamToFile(url: String, dest: java.io.File, onProgress: (Int) -> Unit) {
+        dest.parentFile?.mkdirs()
+        val part = java.io.File(dest.parentFile, dest.name + ".part")
+        val conn = java.net.URL(url).openConnection() as java.net.HttpURLConnection
+        conn.connectTimeout = 3000
+        conn.readTimeout = 15_000
+        try {
+            if (conn.responseCode != 200) throw java.io.IOException("HTTP ${conn.responseCode} for ${dest.name}")
+            val total = conn.contentLengthLong
+            var done = 0L
+            var lastPct = -1
+            conn.inputStream.use { input ->
+                java.io.FileOutputStream(part).use { out ->
+                    val buf = ByteArray(1 shl 16)
+                    while (true) {
+                        val n = input.read(buf)
+                        if (n < 0) break
+                        out.write(buf, 0, n)
+                        done += n
+                        val pct = if (total > 0) (done * 100 / total).toInt() else 0
+                        if (pct != lastPct) { lastPct = pct; onProgress(pct) }
+                    }
+                }
+            }
+            if (total > 0 && done != total) throw java.io.IOException("incomplete ${dest.name}")
+            if (!part.renameTo(dest)) throw java.io.IOException("could not save ${dest.name}")
+        } finally {
+            conn.disconnect()
+            part.delete()
+        }
+    }
+
+    /** Text -> semantic encoding -> compression -> encrypted packet -> mesh transmit -> local log. */
+    private suspend fun transmitText(textToUse: String) {
+        if (textToUse.isBlank()) return
+        try {
+            // 1. Offline STT Transcription
+            val sttStart = System.currentTimeMillis()
+            val sttResult = sttEngine.transcribeText(textToUse, _selectedLanguage.value)
+            val sttDuration = System.currentTimeMillis() - sttStart
+
+            // 2. Semantic Extraction (General Comms is strictly non-emergency mode)
+            val semStart = System.currentTimeMillis()
+            val semantic = semanticEncoder.encode(
+                sttResult.transcript,
+                _selectedLanguage.value,
+                _receiverLanguage.value
+            )
+            val semDuration = System.currentTimeMillis() - semStart
+
+            // 3. Adaptive Compression (General Comms priority is always NORMAL)
+            _pttState.value = PttState.COMPRESSING
+            val compStart = System.currentTimeMillis()
+            val currentLq = linkMetrics.value.linkQuality
+            val compResult = compressor.compress(
+                sttResult.transcript,
+                semantic,
+                currentLq,
+                Priority.NORMAL
+            )
+            val compDuration = System.currentTimeMillis() - compStart
+
+            // 4. Packetization with CRC16 Checksum
+            _pttState.value = PttState.TRANSMITTING
+            val targetNodeId = _activeTargetNode.value?.id ?: "BRDCAST_"
+            val actualSourceLang = translatorEngine.detectScriptLanguage(textToUse) ?: _selectedLanguage.value
+            val packet = MeshCrypto.seal(Packet(
+                senderId = meshRouter.localNodeId,
+                receiverId = targetNodeId,
+                languageId = actualSourceLang.id,
+                priority = Priority.NORMAL,
+                packetType = compResult.packetType,
+                payload = compResult.payload
+            ))
+
+            // 5. Mesh Queueing and Transmission
+            val txStart = System.currentTimeMillis()
+            meshRouter.enqueueOutgoing(packet)
+            val txSuccess = transportManager.transmitPacket(packet)
+            val txDuration = System.currentTimeMillis() - txStart
+
+            networkMonitor.recordPacketTransmission(txSuccess, txDuration)
+
+            // 6. Log in Encrypted Local Database
+            val telemetry = TechnicalTelemetry(
+                sttDurationMs = sttDuration,
+                semanticDurationMs = semDuration,
+                compressionDurationMs = compDuration,
+                networkTransitDurationMs = txDuration,
+                reassemblyDurationMs = 5L,
+                ttsDurationMs = 85L,
+                payloadBytes = packet.payloadLength,
+                rawEquivalentBytes = 64000
+            )
+
+            val chatMessage = ChatMessage(
+                senderId = meshRouter.localNodeId,
+                senderName = "${userProfile.value.username} (You)",
+                receiverId = targetNodeId,
+                text = sttResult.transcript,
+                reconstructedSpeechText = semanticDecoder.decode(semantic, _selectedLanguage.value),
+                priority = semantic.priority,
+                packetType = compResult.packetType,
+                transport = linkMetrics.value.activeTransport,
+                language = _selectedLanguage.value,
+                // DELIVERED_ACK is only set once a peer actually acknowledges (see trackDelivery)
+                status = if (txSuccess) DeliveryStatus.TRANSMITTING else DeliveryStatus.FAILED,
+                isIncoming = false,
+                timestamp = System.currentTimeMillis(),
+                telemetry = telemetry
+            )
+
+            database.saveMessage(chatMessage)
+
+            _pttState.value = if (semantic.priority == Priority.EMERGENCY) {
+                PttState.EMERGENCY
+            } else if (txSuccess) {
+                PttState.TRANSMITTING
+            } else {
+                PttState.FAILED
+            }
+            if (txSuccess) trackDelivery(packet, chatMessageId = chatMessage.id, sosLogId = null)
+        } catch (t: Throwable) {
+            android.util.Log.e("CommunicationRepository", "Transmit failed: ${t.message}", t)
+            _pttState.value = PttState.FAILED
         }
     }
 
@@ -667,6 +790,7 @@ class CommunicationRepository(
             ttsEngine.speak(
                 reconstructedText,
                 _selectedLanguage.value,
+                alert = isSos,
                 onMetrics = { startLatencyMs, audioDurationMs, success ->
                     performanceMonitor.recordTtsOutcome(success)
                     if (success) {

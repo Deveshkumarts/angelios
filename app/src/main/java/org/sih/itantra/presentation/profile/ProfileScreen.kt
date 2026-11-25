@@ -65,9 +65,9 @@ fun ProfileScreen(repository: CommunicationRepository) {
         sentMessages.map { it.telemetry.payloadBytes }.average().takeIf { sentMessages.isNotEmpty() }
     }
     val deliveryRatePct = (100f - linkMetrics.packetLossPct).coerceIn(0f, 100f)
-    val hasAnyLiveSamples = perf.sttSampleCount > 0 || perf.ttsSampleCount > 0 || sentMessages.isNotEmpty()
+    val hasAnyLiveSamples = perf.avgSttRtf != null || perf.ttsSampleCount > 0 || sentMessages.isNotEmpty()
     val criteriaPassed = remember(perf, deliveryRatePct, avgCompressionPct, hasAnyLiveSamples) {
-        val sttOk = perf.avgSttConfidencePct?.let { it >= 70f } ?: true
+        val sttOk = perf.avgSttRtf?.let { it < 1f } ?: true
         val ttsOk = perf.ttsSuccessRatePct?.let { it >= 90f } ?: true
         val latencyOk = perf.avgSttLatencyMs?.let { it < 1200L } ?: true
         val bandwidthOk = avgCompressionPct?.let { it >= 90.0 } ?: true
@@ -108,9 +108,6 @@ fun ProfileScreen(repository: CommunicationRepository) {
 
     LaunchedEffect(selectedLanguage) {
         isPackReady = repository.translatorEngine.isPackDownloaded(selectedLanguage)
-        repository.translatorEngine.checkModelDownloaded(selectedLanguage) { downloaded ->
-            isModelDownloaded = downloaded
-        }
     }
 
     LaunchedEffect(Unit) {
@@ -278,7 +275,7 @@ fun ProfileScreen(repository: CommunicationRepository) {
                 total = 4,
                 section = "Identity & settings",
                 title = "profile",
-                titleSize = 48.sp,
+                titleSize = 46.sp,
                 captions = listOf(userProfile.callsign, userProfile.role, userProfile.preferredLanguage.nativeName),
                 status = if (userProfile.isInitialized) "Profile set · ${userProfile.username}" else "Setup needed"
             )
@@ -842,83 +839,9 @@ fun ProfileScreen(repository: CommunicationRepository) {
                         )
                     }
 
-                    // Optional Google ML Kit Section (Clean, Non-Blocking, 10s Safe Timeout)
-                    if (repository.translatorEngine.isNeuralModelSupported(selectedLanguage) && selectedLanguage != Language.ENGLISH) {
-                        HorizontalDivider(color = BorderGlass.copy(alpha = 0.4f), thickness = 0.5.dp)
-
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    text = "GOOGLE ML KIT AUXILIARY (~30 MB)",
-                                    fontFamily = FontFamily.SansSerif,
-                                    fontSize = 10.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = if (isModelDownloaded) NetworkGreen else TextDim
-                                )
-                                Text(
-                                    text = if (isModelDownloaded) "Google Play Services model installed on device"
-                                           else "Optional internet download. Local SIH engine works without this.",
-                                    fontFamily = FontFamily.SansSerif,
-                                    fontSize = 9.sp,
-                                    color = TextDim
-                                )
-                            }
-                            if (isModelDownloaded) {
-                                Box(
-                                    modifier = Modifier
-                                        .clip(RoundedCornerShape(0.dp))
-                                        .background(NetworkGreen.copy(alpha = 0.2f))
-                                        .padding(horizontal = 6.dp, vertical = 2.dp)
-                                ) {
-                                    Text("INSTALLED", fontFamily = FontFamily.SansSerif, fontSize = 8.5.sp, color = NetworkGreen)
-                                }
-                            } else {
-                                OutlinedButton(
-                                    onClick = {
-                                        isDownloadingModel = true
-                                        modelStatusText = "Connecting to Google Play Services (10s timeout)..."
-                                        repository.translatorEngine.downloadModelIfNeeded(selectedLanguage, timeoutMs = 10000L) { success ->
-                                            isDownloadingModel = false
-                                            isModelDownloaded = success
-                                            modelStatusText = if (success) {
-                                                "Google Play model downloaded successfully!"
-                                            } else {
-                                                "Google Play Services unreachable. Built-in SIH-PS2-MODEL engine remains 100% active."
-                                            }
-                                        }
-                                    },
-                                    enabled = !isDownloadingModel && !isDownloadingPack,
-                                    shape = RoundedCornerShape(0.dp),
-                                    colors = ButtonDefaults.outlinedButtonColors(contentColor = SignalCyanBright),
-                                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
-                                    modifier = Modifier.height(30.dp)
-                                ) {
-                                    if (isDownloadingModel) {
-                                        CircularProgressIndicator(modifier = Modifier.size(10.dp), strokeWidth = 1.5.dp, color = SignalCyanBright)
-                                        Spacer(modifier = Modifier.width(4.dp))
-                                        Text("CONNECTING...", fontFamily = FontFamily.SansSerif, fontSize = 8.5.sp)
-                                    } else {
-                                        Icon(Icons.Default.Download, contentDescription = "Download", modifier = Modifier.size(12.dp))
-                                        Spacer(modifier = Modifier.width(4.dp))
-                                        Text("GET OPTIONAL", fontFamily = FontFamily.SansSerif, fontSize = 8.5.sp)
-                                    }
-                                }
-                            }
-                        }
-
-                        modelStatusText?.let {
-                            Text(
-                                text = it,
-                                fontFamily = FontFamily.SansSerif,
-                                fontSize = 9.sp,
-                                color = if (isModelDownloaded) NetworkGreen else SignalCyanBright
-                            )
-                        }
-                    }
+                    // Open-source on-device speech packs (STT: AI4Bharat IndicConformer, TTS: Meta MMS)
+                    HorizontalDivider(color = BorderGlass.copy(alpha = 0.4f), thickness = 0.5.dp)
+                    SpeechPackPanel(repository = repository, selectedLanguage = selectedLanguage)
                 }
             }
         }
@@ -1188,15 +1111,15 @@ fun ProfileScreen(repository: CommunicationRepository) {
                         ) {
                             Column(modifier = Modifier.weight(1f)) {
                                 Text("1. ACCURACY (40% WEIGHTAGE)", fontFamily = FontFamily.SansSerif, fontSize = 10.sp, fontWeight = FontWeight.Bold, color = TextWhite)
-                                Text("STT confidence, live from this device's recognizer", fontFamily = FontFamily.SansSerif, fontSize = 10.sp, color = TextDim)
+                                Text("On-device IndicConformer STT speed (WER: tools/eval_speech_roundtrip.py)", fontFamily = FontFamily.SansSerif, fontSize = 10.sp, color = TextDim)
                             }
                             Column(horizontalAlignment = Alignment.End) {
                                 Text(
-                                    perf.avgSttConfidencePct?.let { "${it.roundToInt()}% CONF" } ?: "-- (speak to sample)",
+                                    perf.avgSttRtf?.let { String.format(Locale.US, "STT RTF %.2f", it) } ?: "-- (speak to sample)",
                                     fontFamily = FontFamily.SansSerif, fontSize = 12.sp, fontWeight = FontWeight.Bold,
-                                    color = metricColor(perf.avgSttConfidencePct, 70f, higherIsBetter = true)
+                                    color = metricColor(perf.avgSttRtf, 1f, higherIsBetter = false)
                                 )
-                                Text(if (perf.sttSampleCount > 0) "n=${perf.sttSampleCount} samples" else "Target > 70%", fontFamily = FontFamily.SansSerif, fontSize = 8.5.sp, color = TextMuted)
+                                Text("Target RTF < 1.0 (faster than speech)", fontFamily = FontFamily.SansSerif, fontSize = 8.5.sp, color = TextMuted)
                             }
                         }
 
@@ -1382,6 +1305,88 @@ private fun RadioStatusRow(
                 fontWeight = FontWeight.Bold,
                 color = statusColor
             )
+        }
+    }
+}
+
+
+/** Which languages have the open-source speech models installed, plus a Wi-Fi pull from the base station. */
+@Composable
+private fun SpeechPackPanel(repository: CommunicationRepository, selectedLanguage: Language) {
+    val status by repository.speechPacks.status.collectAsState()
+    val download by repository.speechPackDownload.collectAsState()
+    val selected = status[selectedLanguage]
+
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                text = "ON-DEVICE SPEECH PACKS",
+                fontFamily = FontFamily.SansSerif,
+                fontSize = 10.sp,
+                fontWeight = FontWeight.Bold,
+                color = TextWhite,
+                modifier = Modifier.weight(1f)
+            )
+            Text(
+                text = "${status.count { it.value.stt && it.value.tts }}/${Language.entries.size} READY",
+                fontFamily = FontFamily.SansSerif,
+                fontSize = 9.sp,
+                fontWeight = FontWeight.Bold,
+                color = NetworkGreen
+            )
+        }
+        Text(
+            text = "Open-source, fully offline: IndicConformer speech recognition + MMS voices. " +
+                "Install with INSTALL_LANGUAGE_PACKS.bat over USB, or pull from the base station below.",
+            fontFamily = FontFamily.SansSerif,
+            fontSize = 9.sp,
+            color = TextDim
+        )
+        // One tag per language: filled = both STT and TTS present, outlined = partial, dim = missing
+        Language.entries.chunked(4).forEach { row ->
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                row.forEach { lang ->
+                    val st = status[lang]
+                    val ready = st?.stt == true && st.tts
+                    val partial = st != null && (st.stt || st.tts) && !ready
+                    Box(
+                        modifier = Modifier
+                            .border(1.dp, if (ready || partial) TextWhite else BorderGlass)
+                            .background(if (ready) TextWhite else androidx.compose.ui.graphics.Color.Transparent)
+                            .padding(horizontal = 6.dp, vertical = 3.dp)
+                    ) {
+                        Text(
+                            text = lang.code.uppercase() + if (partial) (if (st?.stt == true) " STT" else " TTS") else "",
+                            fontFamily = FontFamily.SansSerif,
+                            fontSize = 9.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = if (ready) DeepSpaceNavy else if (partial) TextWhite else TextDim
+                        )
+                    }
+                }
+            }
+        }
+        if (selected?.stt != true || selected.tts != true) {
+            OutlinedButton(
+                onClick = { repository.downloadSpeechPackFromBaseStation(selectedLanguage) },
+                enabled = download == null,
+                shape = RoundedCornerShape(0.dp),
+                colors = ButtonDefaults.outlinedButtonColors(contentColor = TextWhite),
+                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                modifier = Modifier.fillMaxWidth().height(34.dp)
+            ) {
+                Icon(Icons.Default.Download, contentDescription = null, modifier = Modifier.size(14.dp))
+                Spacer(modifier = Modifier.width(6.dp))
+                Text(
+                    text = "GET ${selectedLanguage.displayName.uppercase()} PACK FROM BASE STATION",
+                    fontFamily = FontFamily.SansSerif,
+                    fontSize = 9.sp,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+        }
+        download?.let {
+            Text(text = it, fontFamily = FontFamily.SansSerif, fontSize = 9.sp, color = SignalCyanBright)
         }
     }
 }

@@ -6,7 +6,7 @@ import java.util.Locale
 
 /**
  * Offline concept-based translator for Indic-source text (any of the 10 Indic languages -> English or
- * another Indic language). Used when neither a curated phrase nor the ML Kit neural model can answer.
+ * another Indic language). Used when no curated phrase or pattern can answer.
  *
  * Every emergency-domain word/phrase is a "concept" with one surface form set per language. Source
  * tokens are mapped to concepts (exact, longest-span first, then inflection-tolerant prefix match) and

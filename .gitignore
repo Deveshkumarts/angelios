@@ -48,3 +48,6 @@ iTANTRA-v1.0-offline.apk
 iTANTRA-v2.0-offline-cyberpunk.apk
 iTANTRA-v2.1-ui-fixed.apk
 iTANTRA-v2.2-separated-cards.apk
+
+# On-device speech model packs (downloaded by tools/download_language_packs.py)
+/models/

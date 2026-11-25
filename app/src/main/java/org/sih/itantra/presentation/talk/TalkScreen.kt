@@ -54,6 +54,8 @@ fun TalkScreen(repository: CommunicationRepository) {
     val messages by repository.messages.collectAsState()
     val userProfile by repository.userProfile.collectAsState()
     val serverStatus by repository.edgeServerStatus.collectAsState()
+    val handsFree by repository.handsFree.collectAsState()
+    val speechIssue by repository.speechUnavailableReason.collectAsState()
 
     var customMessageText by remember { mutableStateOf("") }
 
@@ -165,7 +167,7 @@ fun TalkScreen(repository: CommunicationRepository) {
             modifier = Modifier
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState())
-                .padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 220.dp),
+                .padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 280.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             // 1. Editorial header + base-station status block
@@ -594,15 +596,68 @@ fun TalkScreen(repository: CommunicationRepository) {
                 .padding(bottom = 12.dp, top = 6.dp),
             contentAlignment = Alignment.Center
         ) {
-            PttHoldButton(
-                pttState = pttState,
-                onPressStart = {
-                    repository.startPttCapture()
-                },
-                onPressRelease = {
-                    repository.stopPttCaptureAndSend()
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                speechIssue?.let {
+                    LabLabel(it, color = LabOrangeDeep)
+                    Spacer(modifier = Modifier.height(6.dp))
                 }
-            )
+                // Walkie-talkie (hold to talk) vs phone mode (open mic, sent on every pause)
+                Row(modifier = Modifier.border(1.dp, LabInk)) {
+                    listOf(false to "PTT", true to "PHONE").forEach { (mode, label) ->
+                        val active = handsFree == mode
+                        Box(
+                            modifier = Modifier
+                                .background(if (active) LabInk else LabCard)
+                                .clickable { repository.setHandsFreeMode(mode) }
+                                .padding(horizontal = 18.dp, vertical = 6.dp)
+                        ) {
+                            LabLabel(label, color = if (active) LabPaper else LabInk)
+                        }
+                    }
+                }
+                Spacer(modifier = Modifier.height(8.dp))
+                if (handsFree) {
+                    PhoneModeIndicator(
+                        level = amplitude,
+                        onHangUp = { repository.setHandsFreeMode(false) }
+                    )
+                } else {
+                    PttHoldButton(
+                        pttState = pttState,
+                        onPressStart = {
+                            repository.startPttCapture()
+                        },
+                        onPressRelease = {
+                            repository.stopPttCaptureAndSend()
+                        }
+                    )
+                }
+            }
         }
+    }
+}
+
+
+/** Phone mode: the mic is open and every sentence is sent as soon as the speaker pauses. */
+@Composable
+private fun PhoneModeIndicator(level: Float, onHangUp: () -> Unit) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Box(
+            modifier = Modifier
+                .size(136.dp)
+                .border((2 + level * 10).dp, LabOrange, androidx.compose.foundation.shape.CircleShape)
+                .padding(6.dp)
+                .background(LabInk, androidx.compose.foundation.shape.CircleShape)
+                .clickable { onHangUp() },
+            contentAlignment = Alignment.Center
+        ) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                LabLabel("ON CALL", color = LabPaper)
+                Spacer(modifier = Modifier.height(4.dp))
+                LabLabel("TAP TO END", color = LabOrange)
+            }
+        }
+        Spacer(modifier = Modifier.height(8.dp))
+        LabLabel("Speak freely · sent on every pause", color = LabInkMuted)
     }
 }

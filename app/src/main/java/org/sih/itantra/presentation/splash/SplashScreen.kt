@@ -27,7 +27,7 @@ import org.sih.itantra.presentation.ui.theme.*
 /**
  * Editorial launch poster: the orange block wipes in from the right, the "angelios." wordmark
  * rises into place, the vertical "001" index and the black arrow square settle, and a hairline
- * progress rule runs along the bottom. ~2.2 s total; tap anywhere to skip.
+ * progress rule runs along the bottom. About 5 s in total (250 + 350 + 3900 progress + 250 hold + 250 fade ms); tap anywhere to skip.
  */
 @Composable
 fun SplashScreen(
@@ -41,7 +41,9 @@ fun SplashScreen(
     var navigated by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
 
-    val statusLines = listOf("Starting radios", "Loading language models", "Joining mesh", "Ready")
+    val statusLines = listOf(
+        "Starting radios", "Securing the mesh key", "Loading language models", "Joining mesh", "Ready"
+    )
     val statusIndex = (progress.value * (statusLines.size - 1)).toInt().coerceIn(0, statusLines.lastIndex)
 
     fun finish() {
@@ -56,8 +58,8 @@ fun SplashScreen(
         launch { wordRise.animateTo(1f, tween(600, easing = LinearOutSlowInEasing)) }
         delay(350)
         launch { detailFade.animateTo(1f, tween(400)) }
-        progress.animateTo(1f, tween(1100, easing = LinearEasing))
-        delay(200)
+        progress.animateTo(1f, tween(3900, easing = LinearEasing))
+        delay(250)
         exitFade.animateTo(0f, tween(250))
         finish()
     }
@@ -122,7 +124,7 @@ fun SplashScreen(
             // Wordmark rises into place
             LabWordmark(
                 text = "angelios",
-                fontSize = 68.sp,
+                fontSize = 60.sp,
                 dotColor = LabOrange,
                 modifier = Modifier.graphicsLayer {
                     alpha = wordRise.value

@@ -25,7 +25,7 @@ data class PerformanceMetrics(
     // ---- Efficiency ----
     val bundledAssetBytes: Long = 0L,          // our own offline phrase packs, measured from assets/
     val apkSizeBytes: Long = 0L,               // installed APK file size, measured
-    val downloadedNeuralModels: Int = 0,       // real count of ML Kit models currently on-device
+    val downloadedNeuralModels: Int = 0,       // languages with both open-source STT + TTS packs installed
     val totalNeuralModels: Int = 0,
     val heapUsedMb: Float = 0f,                // live JVM heap in use
     val heapMaxMb: Float = 0f,
@@ -43,6 +43,8 @@ data class PerformanceMetrics(
     // ---- Latency ----
     val lastSttLatencyMs: Long? = null,        // end-of-speech -> transcript ready
     val avgSttLatencyMs: Long? = null,
+    val lastSttRtf: Float? = null,             // STT decode time / spoken audio time (on-device IndicConformer)
+    val avgSttRtf: Float? = null,
     val lastTtsStartLatencyMs: Long? = null,   // speak() called -> first audio frame
     val avgTtsStartLatencyMs: Long? = null,
     val lastTtsRtf: Float? = null,             // ttsStartLatency / spokenAudioDuration
@@ -87,6 +89,7 @@ class PerformanceMonitor(private val context: Context) {
 
     private val sttLatency = RollingWindow()
     private val sttConfidence = RollingWindow()
+    private val sttRtf = RollingWindow()
     private val ttsStartLatency = RollingWindow()
     private val ttsRtf = RollingWindow()
     private val ttsPacketToAudio = RollingWindow()
@@ -126,6 +129,10 @@ class PerformanceMonitor(private val context: Context) {
 
     fun recordSttLatency(ms: Long) {
         if (ms in 0..60_000) sttLatency.add(ms.toDouble())
+    }
+
+    fun recordSttRtf(rtf: Float) {
+        if (rtf in 0f..20f) sttRtf.add(rtf.toDouble())
     }
 
     fun recordSttConfidence(pct: Float) {
@@ -183,6 +190,8 @@ class PerformanceMonitor(private val context: Context) {
             ttsSampleCount = ttsAttempts,
             lastSttLatencyMs = sttLatency.last()?.toLong(),
             avgSttLatencyMs = sttLatency.average()?.toLong(),
+            lastSttRtf = sttRtf.last()?.toFloat(),
+            avgSttRtf = sttRtf.average()?.toFloat(),
             lastTtsStartLatencyMs = ttsStartLatency.last()?.toLong(),
             avgTtsStartLatencyMs = ttsStartLatency.average()?.toLong(),
             lastTtsRtf = ttsRtf.last()?.toFloat(),

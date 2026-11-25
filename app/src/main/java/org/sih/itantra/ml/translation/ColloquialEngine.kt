@@ -75,7 +75,7 @@ object ColloquialEngine {
 
     /**
      * Normalizes informal/colloquial speech into formal literary Indic text.
-     * Essential for feeding on-device neural translators (ML Kit) and grammar parsers
+     * Essential for feeding neural translators (IndicTrans2 on the base station) and grammar parsers
      * so colloquial voice transcriptions (e.g. "எல்லாரும் எங்க இருக்கீங்க")
      * map cleanly into standard sentence structures ("அனைவரும் எங்கே இருக்கிறீர்கள்").
      */

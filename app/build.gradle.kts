@@ -21,6 +21,10 @@ android {
         vectorDrawables {
             useSupportLibrary = true
         }
+        // Real phones are ARM; x86_64 is only added for the emulator in debug builds (below).
+        ndk {
+            abiFilters += listOf("arm64-v8a", "armeabi-v7a")
+        }
     }
 
     // Release signing: put storeFile/storePassword/keyAlias/keyPassword in keystore.properties
@@ -41,8 +45,13 @@ android {
     }
 
     buildTypes {
+        debug {
+            ndk { abiFilters += "x86_64" }
+        }
         release {
-            isMinifyEnabled = false
+            // R8 shrinking/optimisation: Compose runs several times faster than in a debug build
+            isMinifyEnabled = true
+            isShrinkResources = true
             signingConfig = signingConfigs.findByName("release") ?: signingConfigs.getByName("debug").also {
                 logger.warn("keystore.properties not found: release APK is signed with the DEBUG key")
             }
@@ -76,6 +85,8 @@ dependencies {
     implementation("androidx.core:core-ktx:1.12.0")
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.7.0")
     implementation("androidx.activity:activity-compose:1.8.2")
+    // Installs the baseline profiles that Compose/AndroidX ship, so screens are precompiled (less jank)
+    implementation("androidx.profileinstaller:profileinstaller:1.3.1")
     implementation(platform("androidx.compose:compose-bom:2024.02.01"))
     implementation("androidx.compose.ui:ui")
     implementation("androidx.compose.ui:ui-graphics")
@@ -85,9 +96,10 @@ dependencies {
     implementation("androidx.navigation:navigation-compose:2.7.7")
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.7.0")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3")
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.7.3")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.2")
-    implementation("com.google.mlkit:translate:17.0.3")
+    // Open-source on-device speech runtime (Apache-2.0): https://github.com/k2-fsa/sherpa-onnx
+    // Runs AI4Bharat IndicConformer (STT), Meta MMS-TTS (TTS) and Silero VAD. No proprietary SDKs.
+    implementation(files("libs/sherpa-onnx-static-link-onnxruntime-2.0.1.aar"))
 
     testImplementation("junit:junit:4.13.2")
     testImplementation("org.json:json:20231013")

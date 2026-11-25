@@ -16,6 +16,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Brush
@@ -79,6 +80,8 @@ fun PttHoldButton(
         animationSpec = tween(220),
         label = "pttColor"
     )
+    // Ink fills (listening/transmitting) need paper content; orange/amber fills keep ink content.
+    val contentColor = if (activeColor.luminance() < 0.18f) LabPaper else LabInk
 
     // 3. Staggered Expanding Radar-Ping Ripple Loop
     val rippleTransition = rememberInfiniteTransition(label = "pttRipple")
@@ -169,7 +172,7 @@ fun PttHoldButton(
                     Icon(
                         imageVector = if (pttState == PttState.EMERGENCY) Icons.Default.Warning else Icons.Default.Mic,
                         contentDescription = "Push To Talk",
-                        tint = CyberTextWhite,
+                        tint = contentColor,
                         modifier = Modifier
                             .size(38.dp)
                             .graphicsLayer {
@@ -184,7 +187,7 @@ fun PttHoldButton(
                         fontWeight = FontWeight.Bold,
                         fontFamily = FontFamily.SansSerif,
                         letterSpacing = 1.sp,
-                        color = CyberTextWhite
+                        color = contentColor
                     )
                 }
             }

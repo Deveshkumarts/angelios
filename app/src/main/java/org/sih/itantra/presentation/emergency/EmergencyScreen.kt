@@ -64,7 +64,7 @@ fun EmergencyScreen(repository: CommunicationRepository) {
                 total = 4,
                 section = "Emergency protocol",
                 title = "sos",
-                titleSize = 64.sp,
+                titleSize = 60.sp,
                 captions = listOf("Priority override", "All nodes", "GPS attached"),
                 status = if (isSosActive) "Live · $deliveredCount acknowledged" else "Armed · $nearbyCount nodes in range",
                 statusIcon = Icons.Default.Warning

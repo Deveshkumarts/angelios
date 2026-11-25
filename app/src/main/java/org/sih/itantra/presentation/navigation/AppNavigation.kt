@@ -210,7 +210,7 @@ fun AppNavigation(repository: CommunicationRepository) {
                                             color = if (isSelected) LabOrangeDeep else LabInkDim
                                         )
                                         Text(
-                                            text = screen.label.lowercase(),
+                                            text = screen.label.uppercase(),
                                             fontFamily = LabFont,
                                             fontSize = 16.sp,
                                             fontWeight = if (isSelected) FontWeight.Black else FontWeight.Bold,
