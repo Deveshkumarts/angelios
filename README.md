@@ -48,6 +48,7 @@ Punjabi (ਪੰਜਾਬੀ) is also supported as an extra language.
 | Pause detection | Silero VAD | sherpa-onnx | MIT |
 | Speech-to-text | AI4Bharat IndicConformer (CTC, int8); English: NVIDIA NeMo fast-conformer CTC | sherpa-onnx (ONNX Runtime) | MIT / CC-BY-4.0 |
 | Text-to-speech | Meta MMS-TTS (VITS), one voice per language | sherpa-onnx | CC-BY-NC-4.0 (non-commercial) |
+| Translation (optional pack) | AI4Bharat IndicTrans2 distilled 200M, int8 (en->indic, indic->en; indic->indic via English) | ONNX Runtime | MIT |
 
 - **Sentence streaming:** while PTT is held, the VAD closes a sentence at every pause (0.6 s); that sentence is recognised and transmitted immediately instead of waiting for release.
 - **Phone mode:** switch PTT to PHONE on the Talk screen for an open mic (voice-call input path with echo cancellation); every sentence is sent on a pause, and the mic is muted while incoming speech plays.
@@ -56,10 +57,12 @@ Punjabi (ਪੰਜਾਬੀ) is also supported as an extra language.
 - **Size:** each language pack is about 310 MB (STT 198 MB + TTS 114 MB; English 290 MB). Packs are not bundled in the APK; one language's STT and TTS are loaded at a time.
 - **Round-trip benchmark** (`tools/eval_speech_roundtrip.py`, MMS speaks 5 test sentences and IndicConformer transcribes them, laptop CPU): Hindi WER 0%, Tamil WER 1.4%, English WER 27% (the English MMS voice is the weak link); STT RTF about 0.04, TTS RTF about 0.3. Synthetic speech is cleaner than a real microphone, so measure real speakers for final numbers.
 
+- **Offline translation:** with the ~620 MB `mt` pack installed, any of the 10 languages translates to any other on the phone (54/54 free-form test pairs; 65-230 ms per sentence on a laptop CPU, slower on phones; the first use loads the models). Phones under 4 GB RAM unload the models after each translation. Without the pack, free-form sentences need the base station, and anything that can't be fully translated is delivered in the original language instead of a half-translated mix. The Kotlin engine is checked against `tools/indictrans2_reference.py` by `IndicTrans2EngineTest`.
+
 **Installing language packs**
 ```powershell
-python tools\download_language_packs.py hi ta en     # or: all   (downloads to models\packs, git-ignored)
-.\INSTALL_LANGUAGE_PACKS.bat hi ta en                 # copies them to a USB-connected phone
+python tools\download_language_packs.py hi ta en mt  # or: all mt   (downloads to models\packs, git-ignored)
+.\INSTALL_LANGUAGE_PACKS.bat hi ta en mt              # copies them to a USB-connected phone
 ```
 Alternatively, start the base station on the laptop and tap **ME > On-device speech packs > Get pack from base station** on the phone; the pack is pulled over the local Wi-Fi/hotspot (`GET /api/speechpack/...`).
 
@@ -179,7 +182,7 @@ An ESP32 + SX1262 board flashed with `firmware/lora_bridge` and connected over U
 
 ## Known Limitations
 - **Speech packs** must be installed per language (about 310 MB each) before that language can speak or listen; with both models loaded the app uses roughly 450 MB of RAM, which is tight on 2 GB phones.
-- **Translation** has no on-device neural model: free-form sentences outside the curated phrases translate best when the base station (IndicTrans2) is reachable.
+- **Translation** of free-form sentences on the phone needs the optional `mt` pack (~620 MB); quality matches IndicTrans2 distilled 200M, and Indic-to-Indic goes through English, which can lose nuance.
 - **MMS-TTS voices** are licensed CC-BY-NC-4.0 (non-commercial use only).
 - **BLE** works phone-to-phone with a GATT write per peer (up to 7 peers per send). It's slower than Wi-Fi and meant as a fallback bearer.
 - **Wi-Fi** works over a shared hotspot or LAN (UDP broadcast + TCP + mDNS). It doesn't form Wi-Fi Direct groups by itself.

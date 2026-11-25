@@ -6,6 +6,7 @@ rem models\packs to the phone over USB. No internet is used on the phone.
 rem
 rem   INSTALL_LANGUAGE_PACKS.bat            -> every language downloaded on this PC
 rem   INSTALL_LANGUAGE_PACKS.bat hi ta en   -> only those languages
+rem   INSTALL_LANGUAGE_PACKS.bat mt         -> offline any-to-any translation pack (IndicTrans2)
 rem
 rem Download packs first with:  python tools\download_language_packs.py hi ta en   (or: all)
 
@@ -50,7 +51,8 @@ if /i not "%1"=="common" if not exist "%PACKS%\%1\pack.json" (
     echo Skipping %1: not downloaded on this PC
     exit /b 0
 )
-if /i not "%1"=="common" echo Copying %1 (about 300 MB, takes a minute over USB)...
+if /i "%1"=="mt" echo Copying the offline translation pack (about 620 MB)...
+if /i not "%1"=="common" if /i not "%1"=="mt" echo Copying %1 (about 300 MB, takes a minute over USB)...
 %ADB% push "%PACKS%\%1" %STAGE%/
 %ADB% shell "cp -r %STAGE%/%1 %DEST%/ && rm -rf %STAGE%/%1"
 exit /b 0

@@ -252,6 +252,15 @@ class CommunicationRepository(
         locationProvider.requestFreshFix()
 
         translatorEngine.initContext(context)
+        // Offline any-to-any translation. Phones under 4 GB RAM unload the models after each use.
+        val totalRamBytes = android.app.ActivityManager.MemoryInfo().also {
+            (context.getSystemService(Context.ACTIVITY_SERVICE) as android.app.ActivityManager).getMemoryInfo(it)
+        }.totalMem
+        translatorEngine.neuralEngine = org.sih.itantra.ml.translation.IndicTrans2Engine(
+            modelDir = { speechPacks.mtDir() },
+            keepLoaded = totalRamBytes >= 4L * 1024 * 1024 * 1024,
+            threads = maxOf(1, minOf(4, Runtime.getRuntime().availableProcessors() / 2))
+        )
         (transportManager.getTransport(TransportType.WIFI_DIRECT) as? org.sih.itantra.network.transport.WifiDirectTransport)?.localNodeId = localNodeId
         networkMonitor.startMonitoring(scope) { currentRadioRssi() }
 
@@ -497,6 +506,43 @@ class CommunicationRepository(
                 delay(3000)
             } catch (t: Throwable) {
                 android.util.Log.w("CommunicationRepo", "Speech pack download failed: ${t.message}")
+                _speechPackDownload.value = "Download failed: ${t.message ?: "connection lost"}"
+                delay(4000)
+            } finally {
+                _speechPackDownload.value = null
+            }
+        }
+    }
+
+    /** Pull the offline translation pack (IndicTrans2, ~610 MB) from the base station over Wi-Fi. */
+    fun downloadTranslationPackFromBaseStation() {
+        if (_speechPackDownload.value != null) return
+        _speechPackDownload.value = "Looking for the base station..."
+        scope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            try {
+                val port = translatorEngine.edgeServerPort
+                val host = listOfNotNull(
+                    translatorEngine.edgeServerHost, translatorEngine.getDetectedGatewayHost(),
+                    "192.168.137.1", "192.168.43.1", "10.0.2.2"
+                ).distinct().firstOrNull { baseStationReachable(it, port) }
+                if (host == null) {
+                    _speechPackDownload.value = "Base station not reachable on this Wi-Fi/hotspot"
+                    delay(4000)
+                    return@launch
+                }
+                val files = SpeechModelPacks.MT_FILES
+                files.forEachIndexed { i, rel ->
+                    val dest = java.io.File(speechPacks.internalRoot, "mt/$rel")
+                    if (dest.isFile && dest.length() > 0) return@forEachIndexed
+                    streamToFile("http://$host:$port/api/speechpack/mt/$rel", dest) { pct ->
+                        _speechPackDownload.value = "Translation pack: file ${i + 1}/${files.size} - $pct%"
+                    }
+                }
+                speechPacks.refresh()
+                _speechPackDownload.value = "Offline translation pack installed"
+                delay(3000)
+            } catch (t: Throwable) {
+                android.util.Log.w("CommunicationRepo", "Translation pack download failed: ${t.message}")
                 _speechPackDownload.value = "Download failed: ${t.message ?: "connection lost"}"
                 delay(4000)
             } finally {

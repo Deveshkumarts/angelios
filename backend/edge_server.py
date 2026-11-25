@@ -144,6 +144,11 @@ SPEECH_PACKS_DIR = os.path.realpath(os.environ.get(
     os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "models", "packs"),
 ))
 _SPEECH_PACK_FILES = {"stt/model.int8.onnx", "stt/tokens.txt", "tts/model.onnx", "tts/tokens.txt"}
+_MT_PACK_FILES = {
+    "en-indic/encoder.onnx", "en-indic/decoder.onnx", "en-indic/vocab.json",
+    "indic-en/encoder_model.onnx", "indic-en/decoder_model.onnx", "indic-en/decoder_with_past_model.onnx",
+    "indic-en/src_vocab.txt", "indic-en/src_merges.txt", "indic-en/tgt_vocab.txt", "indic-en/it2_meta.json",
+}
 
 
 @app.get("/api/speechpack/{lang}/{kind}/{name}")
@@ -151,6 +156,8 @@ def speech_pack_file(lang: str, kind: str, name: str):
     rel = f"{kind}/{name}"
     if lang == "common" and rel == "vad/silero_vad.onnx":
         pass  # shared Silero VAD, stored at packs/common/silero_vad.onnx
+    elif lang == "mt" and rel in _MT_PACK_FILES:
+        pass  # offline IndicTrans2 translation pack
     elif not (lang.isalpha() and len(lang) <= 3 and rel in _SPEECH_PACK_FILES):
         raise HTTPException(status_code=400, detail="Invalid speech pack path")
     path = os.path.realpath(os.path.join(SPEECH_PACKS_DIR, lang, kind, name) if lang != "common"

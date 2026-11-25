@@ -1366,6 +1366,59 @@ private fun SpeechPackPanel(repository: CommunicationRepository, selectedLanguag
                 }
             }
         }
+        // Offline any-to-any translation (IndicTrans2)
+        val mtReady by repository.speechPacks.mtReady.collectAsState()
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = "OFFLINE TRANSLATION · INDICTRANS2",
+                    fontFamily = FontFamily.SansSerif,
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = TextWhite
+                )
+                Text(
+                    text = if (mtReady) "Any language to any language, on this phone"
+                           else "Without it, free-form sentences need the base station",
+                    fontFamily = FontFamily.SansSerif,
+                    fontSize = 9.sp,
+                    color = TextDim
+                )
+            }
+            Box(
+                modifier = Modifier
+                    .border(1.dp, if (mtReady) TextWhite else BorderGlass)
+                    .background(if (mtReady) TextWhite else androidx.compose.ui.graphics.Color.Transparent)
+                    .padding(horizontal = 6.dp, vertical = 3.dp)
+            ) {
+                Text(
+                    text = if (mtReady) "READY" else "NOT INSTALLED",
+                    fontFamily = FontFamily.SansSerif,
+                    fontSize = 9.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = if (mtReady) DeepSpaceNavy else TextDim
+                )
+            }
+        }
+        if (!mtReady) {
+            OutlinedButton(
+                onClick = { repository.downloadTranslationPackFromBaseStation() },
+                enabled = download == null,
+                shape = RoundedCornerShape(0.dp),
+                colors = ButtonDefaults.outlinedButtonColors(contentColor = TextWhite),
+                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                modifier = Modifier.fillMaxWidth().height(34.dp)
+            ) {
+                Icon(Icons.Default.Download, contentDescription = null, modifier = Modifier.size(14.dp))
+                Spacer(modifier = Modifier.width(6.dp))
+                Text(
+                    text = "GET TRANSLATION PACK FROM BASE STATION (~610 MB)",
+                    fontFamily = FontFamily.SansSerif,
+                    fontSize = 9.sp,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+        }
         if (selected?.stt != true || selected.tts != true) {
             OutlinedButton(
                 onClick = { repository.downloadSpeechPackFromBaseStation(selectedLanguage) },

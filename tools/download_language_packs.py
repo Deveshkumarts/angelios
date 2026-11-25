@@ -7,11 +7,15 @@ Download the open-source, on-device speech models used by the Angelios app.
   TTS : Meta MMS-TTS (VITS) exported for sherpa-onnx                        (CC-BY-NC-4.0)
         https://huggingface.co/willwade/mms-tts-multilingual-models-onnx
   VAD : Silero VAD (sherpa-onnx release asset)                              (MIT)
+  MT  : AI4Bharat IndicTrans2 distilled 200M, int8 ONNX (optional "mt" pack)  (MIT)
+        en->indic: https://huggingface.co/Aji230923/indictrans2-en-indic-dist-200M-onnx
+        indic->en: https://huggingface.co/ngiftsun/indictrans2-indic-en-int8-mobile
 
 Files land in  models/packs/<lang>/{stt,tts}/  and  models/packs/common/ , the same layout
 INSTALL_LANGUAGE_PACKS.bat copies to the phone. Nothing is downloaded at app run time.
 
 Usage:  python tools/download_language_packs.py hi ta en      (or: all)
+        python tools/download_language_packs.py mt            (offline translation pack, ~610 MB)
 """
 import json
 import os
@@ -54,6 +58,22 @@ def fetch(url: str, dest: str) -> None:
     os.replace(part, dest)
 
 
+MT_EN_INDIC = "https://huggingface.co/Aji230923/indictrans2-en-indic-dist-200M-onnx/resolve/main"
+MT_INDIC_EN = "https://huggingface.co/ngiftsun/indictrans2-indic-en-int8-mobile/resolve/main"
+
+
+def download_mt() -> None:
+    base = os.path.join(ROOT, "mt")
+    print("[mt]")
+    for f in ("encoder.onnx", "decoder.onnx", "vocab.json"):
+        fetch(f"{MT_EN_INDIC}/{f}", os.path.join(base, "en-indic", f))
+    for f in ("encoder_model.onnx", "decoder_model.onnx", "decoder_with_past_model.onnx",
+              "src_vocab.txt", "src_merges.txt", "tgt_vocab.txt", "it2.properties", "it2_meta.json"):
+        fetch(f"{MT_INDIC_EN}/{f}", os.path.join(base, "indic-en", f))
+    with open(os.path.join(base, "pack.json"), "w", encoding="utf-8") as fh:
+        json.dump({"pack": "mt", "model": "IndicTrans2 distilled 200M int8"}, fh)
+
+
 def download(lang: str) -> None:
     mms = LANGS[lang]
     base = os.path.join(ROOT, lang)
@@ -72,6 +92,11 @@ def download(lang: str) -> None:
 
 def main() -> None:
     args = sys.argv[1:] or ["hi", "ta", "en"]
+    if "mt" in args:
+        download_mt()
+        args = [a for a in args if a != "mt"]
+        if not args:
+            return
     langs = list(LANGS) if args == ["all"] else args
     unknown = [l for l in langs if l not in LANGS]
     if unknown:

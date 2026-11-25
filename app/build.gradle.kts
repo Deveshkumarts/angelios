@@ -78,6 +78,14 @@ android {
         resources {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
         }
+        jniLibs {
+            // 32-bit x86 isn't shipped (see abiFilters); sherpa-onnx and onnxruntime-android both
+            // carry an x86 libonnxruntime.so, which would otherwise collide while merging.
+            excludes += "lib/x86/**"
+            // Compress native libraries inside the APK (smaller file to share/sideload; Android
+            // extracts them once at install).
+            useLegacyPackaging = true
+        }
     }
 }
 
@@ -100,6 +108,10 @@ dependencies {
     // Open-source on-device speech runtime (Apache-2.0): https://github.com/k2-fsa/sherpa-onnx
     // Runs AI4Bharat IndicConformer (STT), Meta MMS-TTS (TTS) and Silero VAD. No proprietary SDKs.
     implementation(files("libs/sherpa-onnx-static-link-onnxruntime-2.0.1.aar"))
+    // ONNX Runtime (MIT) for offline IndicTrans2 translation; the desktop build runs the same
+    // engine in JVM unit tests.
+    implementation("com.microsoft.onnxruntime:onnxruntime-android:1.20.0")
+    testImplementation("com.microsoft.onnxruntime:onnxruntime:1.20.0")
 
     testImplementation("junit:junit:4.13.2")
     testImplementation("org.json:json:20231013")

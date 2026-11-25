@@ -71,10 +71,14 @@ data class DownloadedLanguagePack(
  * Dual-tier architecture:
  * 1. AI4Bharat IndicTrans2 Edge Base Station (SIH-PS2-MODEL on GPU) if reachable on Wi-Fi / Hotspot
  * 2. Downloaded SIH-PS2-MODEL Distilled Language Packs (Runs 100% offline with zero server!)
- * 3. Embedded Syntactic & Grammatical Engine for zero-latency local fallback
+ * 3. On-device IndicTrans2 (int8 ONNX) when the offline translation pack is installed
+ * 4. Embedded Syntactic & Grammatical Engine for zero-latency local fallback
  * All tiers are open-source; no proprietary or cloud translation SDK is used.
  */
 class OfflineTranslatorEngine {
+
+    /** On-device IndicTrans2 (set by the repository when the translation pack is installed). */
+    @Volatile var neuralEngine: IndicTrans2Engine? = null
 
     // Set from the app's edge-server settings, or discovered via the Wi-Fi gateway / common hotspot IPs.
     var edgeServerHost: String? = null
@@ -455,11 +459,29 @@ class OfflineTranslatorEngine {
     // Thread-safe fast in-memory translation cache for instantaneous (0.001 ms) responses
     private val translationCache = ConcurrentHashMap<String, String>()
 
+    /**
+     * Translate [inputText] into [targetLanguage]. Never returns a half-translated mix of scripts
+     * ("The पुल near the school collapsed has"): if no tier can translate the whole sentence, the
+     * original text is returned unchanged, so the receiver sees it (and hears it, in the sender's
+     * language voice) exactly as it was said.
+     */
     fun translate(
         inputText: String,
         targetLanguage: Language,
         sourceLanguage: Language = Language.ENGLISH,
         depth: Int = 0
+    ): String {
+        val result = translateAnyTier(inputText, targetLanguage, sourceLanguage, depth)
+        if (depth > 0) return result
+        val original = inputText.trim().nfc()
+        return if (result.isBlank() || hasStrayLatin(result, targetLanguage)) original else result
+    }
+
+    private fun translateAnyTier(
+        inputText: String,
+        targetLanguage: Language,
+        sourceLanguage: Language,
+        depth: Int
     ): String {
         val trimmed = inputText.trim().nfc()
         if (trimmed.isBlank()) {
@@ -588,6 +610,18 @@ class OfflineTranslatorEngine {
             return colloquialPattern
         }
 
+        // Tier 1.75: On-device IndicTrans2 (open-source neural MT, fully offline) for free-form
+        // sentences no curated phrase or template covers. Indic->Indic pivots through English inside
+        // the engine (it never calls back into this translator), so it is safe at any depth.
+        run {
+            val nmt = neuralEngine?.translate(trimmed, actualSource, targetLanguage)
+            if (!nmt.isNullOrBlank() && !nmt.equals(trimmed, ignoreCase = true) && !hasStrayLatin(nmt, targetLanguage)) {
+                val colloquialNmt = ColloquialEngine.toColloquial(nmt, targetLanguage, trimmed)
+                translationCache[cacheKey] = colloquialNmt
+                return colloquialNmt
+            }
+        }
+
         // Tier 1.78: Offline concept lexicon (all 10 Indic languages -> English / any Indic language).
         // Answers only when every input word is known, so it never emits mixed-script or half-translated text.
         if (actualSource != Language.ENGLISH) {
@@ -654,7 +688,7 @@ class OfflineTranslatorEngine {
         // Last resort for a non-English source: a word-by-word gloss that mixes scripts ("Is राजू के legs में
         // चोट लगी") is worse than showing the speaker's original text, so return that untouched instead.
         if (actualSource != Language.ENGLISH && hasStrayLatin(grammarResult, targetLanguage)) {
-            translationCache[cacheKey] = trimmed
+            // Not cached: a later call may succeed (base station back online, pack installed)
             return trimmed
         }
         val colloquialGrammar = ColloquialEngine.toColloquial(grammarResult, targetLanguage, trimmed)
@@ -680,11 +714,15 @@ class OfflineTranslatorEngine {
     private fun hasStrayLatin(result: String, target: Language): Boolean {
         if (target == Language.ENGLISH) {
             // English output must not contain any untranslated Indic-script words.
-            return result.any { detectScriptLanguage(it.toString()) != null }
+            return result.any { it != '।' && it != '॥' && detectScriptLanguage(it.toString()) != null }
         }
         // Indic output must not contain English words or words in a different Indic script.
         if (Regex("""[A-Za-z]{2,}""").findAll(result).any { m -> m.value != m.value.uppercase(Locale.ROOT) }) return true
-        return result.any { ch -> detectScriptLanguage(ch.toString()).let { it != null && it != target && !sharesScript(it, target) } }
+        // The danda (। ॥) sits in the Devanagari block but ends sentences in Bengali, Odia, Punjabi too.
+        return result.any { ch ->
+            ch != '।' && ch != '॥' &&
+                detectScriptLanguage(ch.toString()).let { it != null && it != target && !sharesScript(it, target) }
+        }
     }
 
     /** Hindi and Marathi are both written in Devanagari. */

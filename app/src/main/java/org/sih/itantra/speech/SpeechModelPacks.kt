@@ -24,6 +24,10 @@ class SpeechModelPacks(private val context: Context) {
 
     data class LanguageStatus(val stt: Boolean, val tts: Boolean)
 
+    private val _mtReady = MutableStateFlow(false)
+    /** True when the offline IndicTrans2 translation pack is installed. */
+    val mtReady: StateFlow<Boolean> = _mtReady.asStateFlow()
+
     private val _status = MutableStateFlow<Map<Language, LanguageStatus>>(emptyMap())
     val status: StateFlow<Map<Language, LanguageStatus>> = _status.asStateFlow()
 
@@ -40,6 +44,7 @@ class SpeechModelPacks(private val context: Context) {
 
     fun refresh() {
         _status.value = Language.entries.associateWith { LanguageStatus(sttFiles(it) != null, ttsFiles(it) != null) }
+        _mtReady.value = mtDir() != null
     }
 
     fun vadModel(): File? = roots.map { File(it, "common/silero_vad.onnx") }.firstOrNull { it.isUsable() }
@@ -58,6 +63,11 @@ class SpeechModelPacks(private val context: Context) {
         if (model.isUsable() && tokens.isUsable()) model to tokens else null
     }
 
+    /** Folder holding the IndicTrans2 pack (mt/en-indic + mt/indic-en), or null if not installed. */
+    fun mtDir(): File? = roots.map { File(it, "mt") }.firstOrNull {
+        MT_FILES.all { f -> File(it, f).isUsable() }
+    }
+
     fun hasStt(lang: Language) = sttFiles(lang) != null && vadModel() != null
     fun hasTts(lang: Language) = ttsFiles(lang) != null
 
@@ -67,4 +77,13 @@ class SpeechModelPacks(private val context: Context) {
     }
 
     private fun File.isUsable() = isFile && length() > 0
+
+    companion object {
+        /** Files of the offline translation pack, relative to packs/mt. */
+        val MT_FILES = listOf(
+            "en-indic/encoder.onnx", "en-indic/decoder.onnx", "en-indic/vocab.json",
+            "indic-en/encoder_model.onnx", "indic-en/decoder_model.onnx", "indic-en/decoder_with_past_model.onnx",
+            "indic-en/src_vocab.txt", "indic-en/src_merges.txt", "indic-en/tgt_vocab.txt", "indic-en/it2_meta.json"
+        )
+    }
 }
