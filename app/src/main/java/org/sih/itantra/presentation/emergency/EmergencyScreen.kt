@@ -4,6 +4,7 @@ import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -18,6 +19,7 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -42,7 +44,7 @@ import java.util.Locale
  * Provides flashlight strobe, acoustic siren, vibration alerts, and multi-hop emergency broadcast bypass.
  */
 @Composable
-fun EmergencyScreen(repository: CommunicationRepository) {
+fun EmergencyScreen(repository: CommunicationRepository, onFind: (String) -> Unit = {}) {
     val isSosActive by repository.emergencyManager.isSosActive.collectAsState()
     val sosLogs by repository.emergencyManager.sosLogs.collectAsState()
     val nodes by repository.nodes.collectAsState()
@@ -90,6 +92,47 @@ fun EmergencyScreen(repository: CommunicationRepository) {
         }
 
         Spacer(modifier = Modifier.height(14.dp))
+
+        // 2b. People in distress nearby, with distance and a direction finder
+        val sosPeers by repository.peerLocations.collectAsState()
+        if (sosPeers.isNotEmpty()) {
+            DisposableEffect(Unit) {
+                repository.locationProvider.startUpdates()
+                onDispose { repository.locationProvider.stopUpdates() }
+            }
+            val me by repository.locationProvider.current.collectAsState()
+            LabSectionLabel("SOS", "Nearby in distress", trailing = "${sosPeers.size}")
+            Spacer(modifier = Modifier.height(8.dp))
+            sosPeers.values.sortedByDescending { it.receivedAt }.forEach { p ->
+                val dist = me?.let {
+                    org.sih.itantra.emergency.GeoMath.distanceMeters(it.latitude, it.longitude, p.latitude, p.longitude)
+                }
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 6.dp)
+                        .background(LabCard)
+                        .border(1.5.dp, LabOrange)
+                        .clickable { onFind(p.peerId) }
+                        .padding(12.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(p.name.ifBlank { p.peerId }.uppercase(), fontFamily = LabFont, fontWeight = FontWeight.Black,
+                            fontSize = 16.sp, color = LabInk)
+                        LabLabel(
+                            (dist?.let { org.sih.itantra.emergency.GeoMath.formatDistance(it) + " away" } ?: "position known") +
+                                String.format(java.util.Locale.ROOT, " \u00b7 %.4f, %.4f", p.latitude, p.longitude),
+                            color = LabInkMuted
+                        )
+                    }
+                    Box(modifier = Modifier.background(LabInk).padding(horizontal = 12.dp, vertical = 8.dp)) {
+                        LabLabel("Find \u2192", color = LabPaper)
+                    }
+                }
+            }
+            Spacer(modifier = Modifier.height(14.dp))
+        }
 
         // 3. SOS Active State Monitor Card
         StaggeredEntrance(index = 2) {

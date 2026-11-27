@@ -27,6 +27,7 @@ import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.*
 import org.sih.itantra.domain.repository.CommunicationRepository
 import org.sih.itantra.presentation.emergency.EmergencyScreen
+import org.sih.itantra.presentation.find.FindScreen
 import org.sih.itantra.presentation.network.NetworkScreen
 import org.sih.itantra.presentation.onboarding.UserRegistrationScreen
 import org.sih.itantra.presentation.profile.ProfileScreen
@@ -350,7 +351,16 @@ fun AppNavigation(repository: CommunicationRepository) {
 
                 // Dashboard 2: SOS (Wi-Fi Emergency Broadcast to All)
                 composable(Screen.Emergency.route) {
-                    EmergencyScreen(repository = repository)
+                    EmergencyScreen(repository = repository, onFind = { navController.navigate("find/$it") })
+                }
+
+                // Direction finder to a peer in distress
+                composable("find/{peerId}") { entry ->
+                    FindScreen(
+                        repository = repository,
+                        peerId = entry.arguments?.getString("peerId").orEmpty(),
+                        onBack = { navController.popBackStack() }
+                    )
                 }
 
                 // Dashboard 3: MESH (Radar + Device Count + Private Peer Selection)
@@ -382,7 +392,12 @@ fun AppNavigation(repository: CommunicationRepository) {
                         isPlaying = ttsSpeaking,
                         onOpen = {
                             repository.dismissIncoming(msg.messageId)
-                            val target = if (msg.isSos) Screen.Emergency.route else Screen.Talk.route
+                            val target = when {
+                                // An SOS with a known position opens the direction finder straight away
+                                msg.isSos && repository.peerLocations.value.containsKey(msg.senderId) -> "find/${msg.senderId}"
+                                msg.isSos -> Screen.Emergency.route
+                                else -> Screen.Talk.route
+                            }
                             if (currentRoute != target && !isFullScreen) {
                                 navController.navigate(target) { launchSingleTop = true }
                             }

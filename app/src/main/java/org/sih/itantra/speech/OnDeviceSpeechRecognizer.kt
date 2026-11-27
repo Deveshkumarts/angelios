@@ -67,8 +67,9 @@ class OnDeviceSpeechRecognizer(private val packs: SpeechModelPacks) {
     /** latencyMs = end of the spoken sentence -> its transcript ready; rtf = decode time / audio time. */
     var onSttCompleted: ((latencyMs: Long, rtf: Float) -> Unit)? = null
 
-    /** Called (on the decode thread) for every sentence closed by a pause. */
-    var onSentence: ((text: String, language: Language) -> Unit)? = null
+    /** Called (on the decode thread) for every sentence closed by a pause; [endedAt] is the wall-clock
+     *  time the speaker stopped (the start of the "said -> heard on the other phone" measurement). */
+    var onSentence: ((text: String, language: Language, endedAt: Long) -> Unit)? = null
 
     // Model loading and decoding happen on one background thread; capture has its own thread.
     private val decoder = Executors.newSingleThreadExecutor { r -> Thread(r, "stt-decode").apply { priority = Thread.NORM_PRIORITY - 1 } }
@@ -241,7 +242,7 @@ class OnDeviceSpeechRecognizer(private val packs: SpeechModelPacks) {
             val stream = rec.createStream()
             stream.acceptWaveform(samples, SAMPLE_RATE)
             rec.decode(stream)
-            val out = rec.getResult(stream).text.trim()
+            val out = TranscriptCleanup.clean(rec.getResult(stream).text.trim())
             stream.release()
             out
         } catch (t: Throwable) {
@@ -255,7 +256,7 @@ class OnDeviceSpeechRecognizer(private val packs: SpeechModelPacks) {
         if (sessionText.isNotEmpty()) sessionText.append(' ')
         sessionText.append(text)
         _liveTranscript.value = sessionText.toString()
-        onSentence?.invoke(text, lang)
+        onSentence?.invoke(text, lang, endedAt)
     }
 
     /** Runs on the decode thread only. Keeps one language loaded at a time to bound RAM. */

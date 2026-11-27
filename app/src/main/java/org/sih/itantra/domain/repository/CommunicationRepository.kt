@@ -49,10 +49,22 @@ import org.sih.itantra.network.transport.ReceivedPacket
 import org.sih.itantra.security.MeshCrypto
 import java.util.concurrent.ConcurrentHashMap
 
+/** Last known position of a peer: from an SOS packet's GPS block, or from the live position its
+ *  beacons carry while that peer's SOS is active. Used by the FIND screen. */
+data class PeerLocation(
+    val peerId: String,
+    val name: String,
+    val latitude: Double,
+    val longitude: Double,
+    val receivedAt: Long = System.currentTimeMillis(),
+    val inSos: Boolean = true
+)
+
 /** One received chat/SOS message, for the in-app "incoming transmission" banner and notifications.
  *  [spoken] turns true once its voice note has finished playing. */
 data class IncomingTransmission(
     val messageId: String,
+    val senderId: String = "",
     val senderName: String,
     val text: String,
     val isSos: Boolean,
@@ -147,6 +159,18 @@ class CommunicationRepository(
 
     /** Set by MainActivity: true while the app's UI is visible. */
     @Volatile var isAppInForeground: Boolean = false
+
+    private val _peerLocations = MutableStateFlow<Map<String, PeerLocation>>(emptyMap())
+    /** Peers whose position is known (SOS senders); keyed by node id. */
+    val peerLocations: StateFlow<Map<String, PeerLocation>> = _peerLocations.asStateFlow()
+
+    private fun updatePeerLocation(peerId: String, name: String, lat: Double, lon: Double) {
+        if (lat !in -90.0..90.0 || lon !in -180.0..180.0 || (lat == 0.0 && lon == 0.0)) return
+        _peerLocations.value = _peerLocations.value + (peerId.trim() to PeerLocation(peerId.trim(), name, lat, lon))
+    }
+
+    /** Latest radio signal (RSSI, dBm) heard from [peerId], or null if not in range right now. */
+    fun peerRssi(peerId: String): Int? = database.nodesFlow.value.firstOrNull { it.id.trim() == peerId.trim() }?.rssi
 
     fun markIncomingSeen() {
         _unreadCount.value = 0
@@ -278,6 +302,14 @@ class CommunicationRepository(
             performanceMonitor.recordSttLatency(latencyMs)
             performanceMonitor.recordSttRtf(rtf)
         }
+        // While our SOS is active, keep a live GPS fix so beacons can carry our moving position.
+        scope.launch {
+            var tracking = false
+            emergencyManager.isSosActive.collect { active ->
+                if (active && !tracking) { locationProvider.startUpdates(); tracking = true }
+                if (!active && tracking) { locationProvider.stopUpdates(); tracking = false }
+            }
+        }
         // Phone mode is half-duplex at the input: ignore the mic while our own speaker is talking.
         scope.launch {
             ttsEngine.isSpeaking.collect { speaking -> speechManager.setInputPaused(speaking && _handsFree.value) }
@@ -389,6 +421,13 @@ class CommunicationRepository(
         _activeTargetNode.value = node
     }
 
+    // ------------------------------------------------------------------ clock sync (NTP-style)
+
+    /** Per-peer clock offsets measured from ping/ACK exchanges (see PeerClockSync). */
+    val clockSync = org.sih.itantra.network.monitor.PeerClockSync()
+
+    fun clockOffsetMs(peer: String): Long? = clockSync.offsetMs(peer)
+
     // ------------------------------------------------------------------ voice capture
 
     private val _handsFree = MutableStateFlow(false)
@@ -398,7 +437,7 @@ class CommunicationRepository(
     /** Why speech input can't run right now (e.g. the language pack isn't installed), else null. */
     val speechUnavailableReason: StateFlow<String?> get() = speechManager.unavailableReason
 
-    private val sendSentence: (String, Language) -> Unit = { text, _ -> scope.launch { transmitText(text) } }
+    private val sendSentence: (String, Language, Long) -> Unit = { text, _, saidAt -> scope.launch { transmitText(text, saidAt) } }
 
     /**
      * Step 1: PTT pressed. Speech is segmented by the on-device VAD; every sentence closed by a
@@ -593,7 +632,9 @@ class CommunicationRepository(
     }
 
     /** Text -> semantic encoding -> compression -> encrypted packet -> mesh transmit -> local log. */
-    private suspend fun transmitText(textToUse: String) {
+    /** [saidAt]: when the speaker finished this sentence (voice), or null for typed text. It is
+     *  encoded in the packet id so the receiver can measure "said -> heard" end to end. */
+    private suspend fun transmitText(textToUse: String, saidAt: Long? = null) {
         if (textToUse.isBlank()) return
         try {
             // 1. Offline STT Transcription
@@ -627,6 +668,7 @@ class CommunicationRepository(
             val targetNodeId = _activeTargetNode.value?.id ?: "BRDCAST_"
             val actualSourceLang = translatorEngine.detectScriptLanguage(textToUse) ?: _selectedLanguage.value
             val packet = MeshCrypto.seal(Packet(
+                messageId = ((saidAt ?: System.currentTimeMillis()) shl 12) or java.util.Random().nextInt(4096).toLong(),
                 senderId = meshRouter.localNodeId,
                 receiverId = targetNodeId,
                 languageId = actualSourceLang.id,
@@ -732,6 +774,14 @@ class CommunicationRepository(
                         val parts = payloadStr.split("|")
                         if (parts.size >= 3) {
                             peerBattery = parts[2].trim().toIntOrNull() ?: peerBattery
+                        }
+                        if (parts.size >= 4) {
+                            val ll = parts[3].split(",")
+                            val lat = ll.getOrNull(0)?.trim()?.toDoubleOrNull()
+                            val lon = ll.getOrNull(1)?.trim()?.toDoubleOrNull()
+                            if (lat != null && lon != null) {
+                                updatePeerLocation(packet.senderId, parts.getOrNull(1)?.trim().orEmpty(), lat, lon)
+                            }
                         }
                         if (parts.size >= 2 && parts[1].isNotBlank()) parts[1].trim() else "User ${packet.senderId}"
                     } else {
@@ -844,8 +894,12 @@ class CommunicationRepository(
 
             database.saveMessage(incomingMessage)
 
+            if (decompressed.latitude != null && decompressed.longitude != null) {
+                updatePeerLocation(packet.senderId, senderDisplayName, decompressed.latitude, decompressed.longitude)
+            }
             val transmission = IncomingTransmission(
                 messageId = incomingMessage.id,
+                senderId = packet.senderId.trim(),
                 senderName = senderDisplayName,
                 text = incomingMessage.text,
                 isSos = isSos,
@@ -875,8 +929,11 @@ class CommunicationRepository(
             // Real cross-device latency: sender's packet-build time (embedded in messageId, see
             // Packet.originTimestampMs) -> this device receiving it. Skipped for self-echoed/replayed
             // packets with a clearly bogus (non-positive) delta.
-            val crossDeviceMs = packetReceivedAt - packet.originTimestampMs
-            if (crossDeviceMs >= 0) performanceMonitor.recordCrossDeviceLatency(crossDeviceMs)
+            // "Said -> heard": sender's sentence-end time (packet id), moved onto this phone's clock
+            // with the measured offset, up to the moment our audio starts (see onMetrics below).
+            val senderOffset = clockOffsetMs(packet.senderId)
+            val saidAtLocal = packet.originTimestampMs - (senderOffset ?: 0L)
+            val speakRequestedAt = System.currentTimeMillis()
 
             // Synthesize speech locally if not muted; time packet-arrival -> first audio frame, and
             // the TTS engine's own start-latency/RTF/success, all fed into the live diagnostics screen.
@@ -897,6 +954,9 @@ class CommunicationRepository(
                         // the real "text received -> audio actually playing" delay.
                         val packetToAudioStartMs = (System.currentTimeMillis() - packetReceivedAt - audioDurationMs).coerceAtLeast(0)
                         performanceMonitor.recordTtsPacketToAudioLatency(packetToAudioStartMs)
+                        val audioStartAt = speakRequestedAt + startLatencyMs
+                        val saidToHeard = audioStartAt - saidAtLocal
+                        if (saidToHeard >= 0) performanceMonitor.recordCrossDeviceLatency(saidToHeard, clockSynced = senderOffset != null)
                     }
                 }
             )
@@ -921,12 +981,20 @@ class CommunicationRepository(
                 packetType = PacketType.HELLO,
                 priority = Priority.NORMAL,
                 ttl = 1,
-                payload = "iTANTRA_PEER|$myUsername|${batteryManager.batteryLevel.value}".toByteArray(Charsets.UTF_8)
+                payload = ("iTANTRA_PEER|$myUsername|${batteryManager.batteryLevel.value}" + sosPositionField())
+                    .toByteArray(Charsets.UTF_8)
             ))
             transportManager.transmitPacket(beacon, TransportType.WIFI_DIRECT)
             transportManager.transmitPacket(beacon, TransportType.BLE)
             if (includeLora) transportManager.transmitPacket(beacon, TransportType.LORA)
         }
+    }
+
+    /** "|lat,lon" while our SOS is active (location is shared only during an emergency), else "". */
+    private fun sosPositionField(): String {
+        if (!emergencyManager.isSosActive.value) return ""
+        val fix = locationProvider.current.value ?: locationProvider.lastKnownLocation() ?: return ""
+        return String.format(java.util.Locale.ROOT, "|%.6f,%.6f", fix.latitude, fix.longitude)
     }
 
     // ------------------------------------------------------------------ delivery confirmation
@@ -938,7 +1006,9 @@ class CommunicationRepository(
                 receiverId = original.senderId.trim(),
                 priority = original.priority,
                 packetType = PacketType.ACK,
-                payload = java.nio.ByteBuffer.allocate(8).putLong(original.messageId).array()
+                // acked id + this phone's clock, so the other side can estimate the clock offset
+                payload = java.nio.ByteBuffer.allocate(16).putLong(original.messageId)
+                    .putLong(System.currentTimeMillis()).array()
             ))
             transportManager.transmitPacket(ack)
         }
@@ -949,7 +1019,13 @@ class CommunicationRepository(
         val ackedId = java.nio.ByteBuffer.wrap(ack.payload).long
         val now = System.currentTimeMillis()
 
-        pendingPings[ackedId]?.let { sentAt -> networkMonitor.recordRoundTrip(now - sentAt) }
+        pendingPings[ackedId]?.let { sentAt ->
+            networkMonitor.recordRoundTrip(now - sentAt)
+            if (ack.payload.size >= 16) {
+                val peerClock = java.nio.ByteBuffer.wrap(ack.payload, 8, 8).long
+                clockSync.record(ack.senderId, sentAt = sentAt, receivedAt = now, peerClock = peerClock)
+            }
+        }
 
         val pending = pendingAcks[ackedId] ?: return
         val firstAckFromPeer = pending.ackers.add(ack.senderId.trim())
@@ -1013,7 +1089,7 @@ class CommunicationRepository(
     val isUsingDefaultMeshKey: Boolean get() = MeshCrypto.isUsingDefaultPassphrase
 
     fun triggerEmergencySos(customDistressMessage: String = "") {
-        val fix = locationProvider.lastKnownLocation()
+        val fix = locationProvider.current.value ?: locationProvider.lastKnownLocation()
         locationProvider.requestFreshFix()
         val sosLogId = emergencyManager.triggerSos(
             source = "EMERGENCY_SCREEN",

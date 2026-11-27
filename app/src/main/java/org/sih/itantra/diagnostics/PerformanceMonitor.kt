@@ -53,7 +53,8 @@ data class PerformanceMetrics(
     val avgTtsPacketToAudioMs: Long? = null,
     val lastCrossDeviceLatencyMs: Long? = null, // sender packet built -> THIS device's audio start
     val avgCrossDeviceLatencyMs: Long? = null,
-    val crossDeviceSampleCount: Int = 0
+    val crossDeviceSampleCount: Int = 0,
+    val crossDeviceClockSynced: Boolean = false   // true when corrected by the measured peer clock offset
 )
 
 /** Fixed-size rolling window; keeps the process cheap and the average meaningful (recent behaviour,
@@ -158,8 +159,15 @@ class PerformanceMonitor(private val context: Context) {
 
     /** Only meaningful if both devices' clocks are reasonably in sync (both normally auto-sync via
      *  carrier/GPS time); a manually-set clock on either phone will skew this reading. */
-    fun recordCrossDeviceLatency(ms: Long) {
-        if (ms in -5_000..120_000) crossDeviceLatency.add(ms.toDouble())
+    @Volatile private var crossDeviceSynced = false
+
+    /** "Sentence said on the sender" -> "audio starts on this phone". [clockSynced] = corrected by the
+     *  NTP-style offset measured from ping/ACK exchanges, not just trusting both phones' clocks. */
+    fun recordCrossDeviceLatency(ms: Long, clockSynced: Boolean = false) {
+        if (ms in 0..120_000) {
+            crossDeviceLatency.add(ms.toDouble())
+            crossDeviceSynced = clockSynced
+        }
     }
 
     private fun sampleAndPublish(totalNeuralModels: Int, downloadedModels: Int) {
@@ -200,7 +208,8 @@ class PerformanceMonitor(private val context: Context) {
             avgTtsPacketToAudioMs = ttsPacketToAudio.average()?.toLong(),
             lastCrossDeviceLatencyMs = crossDeviceLatency.last()?.toLong(),
             avgCrossDeviceLatencyMs = crossDeviceLatency.average()?.toLong(),
-            crossDeviceSampleCount = crossDeviceLatency.count
+            crossDeviceSampleCount = crossDeviceLatency.count,
+            crossDeviceClockSynced = crossDeviceSynced
         )
     }
 

@@ -58,9 +58,12 @@ class SpeechModelPacks(private val context: Context) {
 
     /** (model, tokens) for speech synthesis, or null if this language's TTS voice is missing. */
     fun ttsFiles(lang: Language): Pair<File, File>? = roots.firstNotNullOfOrNull { root ->
-        val model = File(root, "${lang.code}/tts/model.onnx")
+        // Full-precision voice by default; an int8 "lite" voice (tools/quantize_tts.py --lite) is
+        // ~3x smaller but ~3x slower to synthesise, so it is only used when it is the one installed.
+        val model = listOf("model.onnx", "model.int8.onnx")
+            .map { File(root, "${lang.code}/tts/$it") }.firstOrNull { it.isUsable() }
         val tokens = File(root, "${lang.code}/tts/tokens.txt")
-        if (model.isUsable() && tokens.isUsable()) model to tokens else null
+        if (model != null && tokens.isUsable()) model to tokens else null
     }
 
     /** Folder holding the IndicTrans2 pack (mt/en-indic + mt/indic-en), or null if not installed. */

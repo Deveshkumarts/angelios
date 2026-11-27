@@ -1168,6 +1168,30 @@ fun ProfileScreen(repository: CommunicationRepository) {
                                 Text("Target < 500ms, RTF < 0.3", fontFamily = FontFamily.SansSerif, fontSize = 8.5.sp, color = TextMuted)
                             }
                         }
+                        // End to end: sentence finished on the sender -> its audio starts on this phone
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                "Said on sender → heard here",
+                                fontFamily = FontFamily.SansSerif, fontSize = 10.sp, color = TextDim
+                            )
+                            Column(horizontalAlignment = Alignment.End) {
+                                Text(
+                                    perf.avgCrossDeviceLatencyMs?.let { "$it ms" } ?: "-- (receive a voice message)",
+                                    fontFamily = FontFamily.SansSerif, fontSize = 11.5.sp, fontWeight = FontWeight.Bold,
+                                    color = metricColor(perf.avgCrossDeviceLatencyMs?.toFloat(), 2000f, higherIsBetter = false)
+                                )
+                                if (perf.crossDeviceSampleCount > 0) {
+                                    Text(
+                                        (if (perf.crossDeviceClockSynced) "clock-synced" else "phone clocks") + " · n=${perf.crossDeviceSampleCount}",
+                                        fontFamily = FontFamily.SansSerif, fontSize = 8.5.sp, color = TextMuted
+                                    )
+                                }
+                            }
+                        }
 
                         HorizontalDivider(color = BorderGlass.copy(alpha = 0.3f), thickness = 0.5.dp)
 

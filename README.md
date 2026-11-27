@@ -54,8 +54,19 @@ Punjabi (ਪੰਜਾਬੀ) is also supported as an extra language.
 - **Phone mode:** switch PTT to PHONE on the Talk screen for an open mic (voice-call input path with echo cancellation); every sentence is sent on a pause, and the mic is muted while incoming speech plays.
 - **Alerts:** SOS/distress messages are spoken on the alarm channel at maximum alarm volume with exclusive audio focus, jump ahead of queued speech and cannot be cut off.
 - **Voice notes:** each received message is kept as a WAV voice note, so replay is instant.
+- **Numbers are spoken:** digits, decimals, "%" and "&" are spelled out before synthesis (English: "25" -> "twenty five"; Indian languages: radio-style digits, "25" -> "दो पाँच"), because the MMS voices only know letters.
+- **Pipelined playback:** long messages are split into clauses; the first clause plays while the next is synthesised (time-to-first-audio about 61-67% lower on 2-3 clause messages).
+- **Said -> heard latency:** voice packets carry the moment the sentence ended; receivers correct it with a per-peer clock offset estimated NTP-style from ping/ACK exchanges, and show "said on sender -> heard here" on the metrics card.
+- **Lite voices (optional):** `python tools/quantize_tts.py --lite <lang>` makes int8 voices (38 MB instead of 114 MB) but they synthesise ~3.5x slower, so full-precision voices stay the default.
 - **Size:** each language pack is about 310 MB (STT 198 MB + TTS 114 MB; English 290 MB). Packs are not bundled in the APK; one language's STT and TTS are loaded at a time.
-- **Round-trip benchmark** (`tools/eval_speech_roundtrip.py`, MMS speaks 5 test sentences and IndicConformer transcribes them, laptop CPU): Hindi WER 0%, Tamil WER 1.4%, English WER 27% (the English MMS voice is the weak link); STT RTF about 0.04, TTS RTF about 0.3. Synthetic speech is cleaner than a real microphone, so measure real speakers for final numbers.
+- **Real-speech accuracy** (Google FLEURS test set, 50 clips per language, the exact on-phone model files; full table in [docs/benchmark_fleurs.md](docs/benchmark_fleurs.md)):
+
+  | | hi | ta | te | kn | ml | bn | mr | gu | or | pa | en |
+  |---|---|---|---|---|---|---|---|---|---|---|---|
+  | WER % | 11.0 | 29.7 | 21.2 | 15.7 | 21.0 | 13.5 | 18.7 | 20.1 | 25.6 | 14.4 | 7.5 |
+  | CER % | 4.1 | 12.6 | 5.8 | 3.5 | 5.0 | 3.6 | 4.5 | 5.9 | 6.8 | 4.8 | 4.0 |
+
+  STT runs at RTF 0.03-0.13 on a laptop CPU. FLEURS is read Wikipedia text (harder vocabulary than field messages). Numbers written as digits in references are scored as words (the recogniser writes words), and transcripts get the app's `TranscriptCleanup`. 25-63% of the remaining word errors are near misses (1-2 characters, e.g. an optional Tamil sandhi consonant "அந்தப்" -> "அந்த"); CER is the fairer figure for Tamil, Telugu, Kannada and Malayalam. Tamil remains the weakest language and is limited by the model itself. Reproduce with `python tools/eval_wer_fleurs.py`.
 
 - **Offline translation:** with the ~620 MB `mt` pack installed, any of the 10 languages translates to any other on the phone (54/54 free-form test pairs; 65-230 ms per sentence on a laptop CPU, slower on phones; the first use loads the models). Phones under 4 GB RAM unload the models after each translation. Without the pack, free-form sentences need the base station, and anything that can't be fully translated is delivered in the original language instead of a half-translated mix. The Kotlin engine is checked against `tools/indictrans2_reference.py` by `IndicTrans2EngineTest`.
 
@@ -118,6 +129,9 @@ Encrypted packets carry `[12B IV][ciphertext][16B GCM tag]` as the payload. The 
 - Acoustic siren frequency modulator (`AudioTrack` 600Hz / 900Hz alternating tone)
 - Haptic buzzer (SOS Morse code `. . . - - - . . .`)
 - Queue-bypass multi-hop emergency broadcast
+
+### 6b. "Find them" direction finder
+When an SOS carries GPS, every receiver lists the person under **SOS > Nearby in distress** (with distance) and the SOS banner opens **FIND**: a big arrow toward the person that turns with the phone (rotation-vector compass, corrected to true north with the local magnetic declination), the distance ("295 m"), compass point and bearing, and a haptic tick for every 10 m closer. While a phone's own SOS is active its encrypted beacons carry its live position every second (location is shared only during an emergency), so the arrow follows a moving person without re-triggering alarms. With no GPS (indoors, rubble), a **warmer/colder** meter uses the radio signal strength of the person's phone.
 
 ### 7. Encryption
 - **Over the air:** AES-256-GCM. The key is derived (PBKDF2-HMAC-SHA256) from a **team mesh passphrase** set in *Settings*, and every device in a team uses the same passphrase. Packets from other teams or tampered packets fail authentication and are dropped. Until you set a passphrase, a public default is used and the app shows a warning.

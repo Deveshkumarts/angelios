@@ -151,24 +151,71 @@ class OnDeviceTts(
             playTone(job.alert)
             return
         }
-        val spoken = if (voice == Language.ENGLISH) job.text.lowercase() else job.text
+        // Numbers, %, & spelled out in the voice's language (MMS voices only know letters)
+        val normalized = TtsTextNormalizer.normalize(job.text, voice)
+        val spoken = if (voice == Language.ENGLISH) normalized.lowercase() else normalized
         val note = noteFile(voice, spoken)
-        val (samples, rate) = readWav(note) ?: synthesize(voice, spoken)?.also { (s, r) -> writeWav(note, s, r); pruneNotes() }
-            ?: run {
-                job.onMetrics(System.currentTimeMillis() - job.requestedAt, 0L, false)
-                playTone(job.alert)
-                return
+
+        // Replay of a stored voice note: no synthesis at all
+        readWav(note)?.let { (samples, rate) ->
+            val start = System.currentTimeMillis() - job.requestedAt
+            playStreamed(rate, job.alert) { emit -> emit(samples) }
+            job.onMetrics(start, samples.size * 1000L / rate, true)
+            return
+        }
+
+        val engine = synchronized(this) { ensureTts(voice) } ?: run {
+            job.onMetrics(System.currentTimeMillis() - job.requestedAt, 0L, false)
+            playTone(job.alert)
+            return
+        }
+        // Pipeline: clause 1 starts playing while clause 2 is being synthesised, so time-to-first-
+        // audio is the synthesis time of the first clause instead of the whole message.
+        val pieces = ArrayList<FloatArray>()
+        var firstAudioAt = 0L
+        val rate = engine.sampleRate()
+        val completed = playStreamed(rate, job.alert) { emit ->
+            for (clause in splitForSpeech(spoken)) {
+                val samples = synchronized(this) { engine.generate(clause, 0, 1.0f).samples }
+                if (samples.isEmpty()) continue
+                if (firstAudioAt == 0L) firstAudioAt = System.currentTimeMillis()
+                pieces += samples
+                if (!emit(samples)) break
             }
-        val startLatency = System.currentTimeMillis() - job.requestedAt
-        val audioMs = samples.size * 1000L / rate
-        play(samples, rate, job.alert)
-        job.onMetrics(startLatency, audioMs, true)
+        }
+        val total = pieces.sumOf { it.size }
+        if (total == 0) {
+            job.onMetrics(System.currentTimeMillis() - job.requestedAt, 0L, false)
+            playTone(job.alert)
+            return
+        }
+        if (completed) {
+            val all = FloatArray(total)
+            var off = 0
+            for (p in pieces) { p.copyInto(all, off); off += p.size }
+            writeWav(note, all, rate)
+            pruneNotes()
+        }
+        job.onMetrics(firstAudioAt - job.requestedAt, total * 1000L / rate, true)
     }
 
-    private fun synthesize(voice: Language, text: String): Pair<FloatArray, Int>? = synchronized(this) {
-        val engine = ensureTts(voice) ?: return null
-        val audio = engine.generate(text, 0, 1.0f)
-        if (audio.samples.isEmpty()) null else audio.samples to audio.sampleRate
+    /**
+     * Clauses for pipelined synthesis: split after sentence/clause punctuation, then merge pieces so
+     * each has at least 4 words (the first only 2, to start speaking sooner). Short messages stay whole.
+     */
+    internal fun splitForSpeech(text: String): List<String> {
+        val raw = text.split(Regex("""(?<=[.!?।॥;:,])\s+|\n+""")).map { it.trim() }.filter { it.isNotEmpty() }
+        if (raw.size <= 1) return listOf(text.trim())
+        val out = ArrayList<String>()
+        var cur = StringBuilder()
+        for (part in raw) {
+            if (cur.isNotEmpty()) cur.append(' ')
+            cur.append(part)
+            val minWords = if (out.isEmpty()) 2 else 4
+            if (cur.split(' ').size >= minWords) { out += cur.toString(); cur = StringBuilder() }
+        }
+        if (cur.isNotEmpty()) { if (out.isEmpty()) out += cur.toString() else out[out.size - 1] = out.last() + " " + cur }
+        return out
     }
 
     /** Keeps one voice in memory at a time to bound RAM on low-end phones. */
@@ -250,7 +297,13 @@ class OnDeviceTts(
 
     // ------------------------------------------------------------------ playback
 
-    private fun play(samples: FloatArray, rate: Int, alert: Boolean) {
+    /**
+     * Plays audio that [produce] hands over chunk by chunk via `emit`. Chunks are written to the
+     * AudioTrack on a separate player thread, so producing the next chunk overlaps playback.
+     * `emit` returns false once playback was pre-empted (an alert arrived); returns true if all
+     * audio was played.
+     */
+    private fun playStreamed(rate: Int, alert: Boolean, produce: ((FloatArray) -> Boolean) -> Unit): Boolean {
         val attrs = AudioAttributes.Builder()
             .setUsage(if (alert) AudioAttributes.USAGE_ALARM else AudioAttributes.USAGE_MEDIA)
             .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
@@ -277,26 +330,42 @@ class OnDeviceTts(
         currentTrack = track
         currentIsAlert = alert
         _isSpeaking.value = true
+        val chunks = java.util.concurrent.LinkedBlockingQueue<FloatArray>()
+        val end = FloatArray(0)
+        val preempted = java.util.concurrent.atomic.AtomicBoolean(false)
+        var written = 0L
+        val player = Thread({
+            while (true) {
+                val chunk = try { chunks.take() } catch (_: InterruptedException) { break }
+                if (chunk === end) break
+                var offset = 0
+                while (offset < chunk.size && running) {
+                    if (track.playState != AudioTrack.PLAYSTATE_PLAYING) { preempted.set(true); break }
+                    val n = track.write(chunk, offset, minOf(4096, chunk.size - offset), AudioTrack.WRITE_BLOCKING)
+                    if (n <= 0) { preempted.set(true); break }
+                    offset += n
+                }
+                written += offset
+                if (preempted.get()) break
+            }
+        }, "tts-player")
         try {
             track.setVolume(AudioTrack.getMaxVolume())
             track.play()
-            var offset = 0
-            while (offset < samples.size && running) {
-                if (track.playState != AudioTrack.PLAYSTATE_PLAYING) break // pre-empted by an alert
-                val n = track.write(samples, offset, minOf(4096, samples.size - offset), AudioTrack.WRITE_BLOCKING)
-                if (n <= 0) break
-                offset += n
-            }
+            player.start()
+            produce { chunk -> if (preempted.get()) false else { chunks.put(chunk); true } }
+            chunks.put(end)
+            player.join()
             // Let the tail of the buffer finish before releasing.
-            if (track.playState == AudioTrack.PLAYSTATE_PLAYING) {
-                val endFrame = samples.size
+            if (!preempted.get() && track.playState == AudioTrack.PLAYSTATE_PLAYING) {
                 val deadline = System.currentTimeMillis() + 2000
-                while (track.playbackHeadPosition < endFrame && System.currentTimeMillis() < deadline &&
+                while (track.playbackHeadPosition < written && System.currentTimeMillis() < deadline &&
                     track.playState == AudioTrack.PLAYSTATE_PLAYING) {
                     Thread.sleep(20)
                 }
             }
         } finally {
+            player.interrupt()
             runCatching { track.stop() }
             track.release()
             currentTrack = null
@@ -304,6 +373,7 @@ class OnDeviceTts(
             _isSpeaking.value = false
             abandonFocus(focus)
         }
+        return !preempted.get()
     }
 
     private fun requestFocus(attrs: AudioAttributes, alert: Boolean): Any? {
@@ -333,7 +403,7 @@ class OnDeviceTts(
         val ms = if (alert) 900 else 250
         val freq = if (alert) 880.0 else 600.0
         val samples = FloatArray(rate * ms / 1000) { i -> (0.6 * sin(2 * PI * freq * i / rate)).toFloat() }
-        runCatching { play(samples, rate, alert) }
+        runCatching { playStreamed(rate, alert) { emit -> emit(samples) } }
     }
 
     // ------------------------------------------------------------------ voice notes (16-bit WAV)

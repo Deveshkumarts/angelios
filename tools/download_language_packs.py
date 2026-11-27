@@ -16,6 +16,7 @@ INSTALL_LANGUAGE_PACKS.bat copies to the phone. Nothing is downloaded at app run
 
 Usage:  python tools/download_language_packs.py hi ta en      (or: all)
         python tools/download_language_packs.py mt            (offline translation pack, ~610 MB)
+        python tools/download_language_packs.py --stt-only te kn   (recognition models only, e.g. for benchmarks)
 """
 import json
 import os
@@ -74,16 +75,18 @@ def download_mt() -> None:
         json.dump({"pack": "mt", "model": "IndicTrans2 distilled 200M int8"}, fh)
 
 
-def download(lang: str) -> None:
+def download(lang: str, stt_only: bool = False) -> None:
     mms = LANGS[lang]
     base = os.path.join(ROOT, lang)
-    print(f"[{lang}]")
+    print(f"[{lang}]{' (speech recognition only)' if stt_only else ''}")
     if lang == "en":
         fetch(f"{STT_REPO}/en/model.int8.onnx", os.path.join(base, "stt", "model.int8.onnx"))
         fetch(f"{STT_REPO}/en/tokens.txt", os.path.join(base, "stt", "tokens.txt"))
     else:
         fetch(f"{STT_REPO}/{lang}/model.int8.onnx", os.path.join(base, "stt", "model.int8.onnx"))
         fetch(f"{STT_REPO}/tokens.txt", os.path.join(base, "stt", "tokens.txt"))
+    if stt_only:
+        return
     fetch(f"{TTS_REPO}/{mms}/model.onnx", os.path.join(base, "tts", "model.onnx"))
     fetch(f"{TTS_REPO}/{mms}/tokens.txt", os.path.join(base, "tts", "tokens.txt"))
     with open(os.path.join(base, "pack.json"), "w", encoding="utf-8") as f:
@@ -91,7 +94,7 @@ def download(lang: str) -> None:
 
 
 def main() -> None:
-    args = sys.argv[1:] or ["hi", "ta", "en"]
+    args = [a for a in sys.argv[1:] if not a.startswith("--")] or ["hi", "ta", "en"]
     if "mt" in args:
         download_mt()
         args = [a for a in args if a != "mt"]
@@ -102,8 +105,9 @@ def main() -> None:
     if unknown:
         sys.exit(f"Unknown language(s): {unknown}. Choose from {list(LANGS)} or 'all'.")
     fetch(VAD_URL, os.path.join(ROOT, "common", "silero_vad.onnx"))
+    stt_only = "--stt-only" in sys.argv
     for lang in langs:
-        download(lang)
+        download(lang, stt_only)
     print("Done. Copy to a phone with INSTALL_LANGUAGE_PACKS.bat")
 
 
